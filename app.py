@@ -66,12 +66,10 @@ def publications():
     table_component = GeneralTableOverview(query_builder, "Publications Overview", limit=100)
     table_component.entity_class = query_builder.entity_class
     table_component.alias = query_builder.alias
-    table_component.add_string_filter("Title", "publication_title", False)
-    table_component.add_date_range_filter("Between", "publication_date")
+    table_component.add_string_filter("Title", "publication_title")
     table_component.add_string_filter(
         label="Conf. Rank",
         field="most_frequent_conference_rank",
-        is_aggregate=True,
         sql_expression="""
             CASE 
                 WHEN COUNT(c.rank) > 0 THEN MODE() WITHIN GROUP (ORDER BY c.rank)
@@ -82,7 +80,6 @@ def publications():
     table_component.add_string_filter(
         label="SJR",
         field="most_frequent_journal_qrank",
-        is_aggregate=True,
         sql_expression="""
             CASE 
                 WHEN COUNT(j.q_rank) > 0 THEN MODE() WITHIN GROUP (ORDER BY j.q_rank)
@@ -122,28 +119,25 @@ def researchers():
     table_component = GeneralTableOverview(query_builder, "Researchers Overview", limit=100)
     table_component.alias = query_builder.alias
     table_component.entity_class = query_builder.entity_class
-    table_component.add_string_filter("Name", "a.name", False)
+    table_component.add_string_filter("Name", "a.name")
     table_component.add_string_filter(
         label="Interest",
         field="interests",
-        is_aggregate=True,
-        sql_expression="COALESCE(STRING_AGG(DISTINCT i.name, ', '), 'N/A')"
+        sql_expression="COALESCE(STRING_AGG(DISTINCT i.name, ', '), '-')"
     )
     table_component.add_string_filter(
         label="Avg. Conf. Rank",
         field="average_conference_rank",
-        is_aggregate=True,
         sql_expression="""
             CASE 
                 WHEN COUNT(c.rank) > 0 THEN MODE() WITHIN GROUP (ORDER BY c.rank)
-                ELSE 'N/A'
+                ELSE '-'
             END
         """
     )
     table_component.add_string_filter(
         label="Avg. SJR",
         field="average_q_rank",
-        is_aggregate=True,
         sql_expression="""
             CASE 
                 WHEN COUNT(j.q_rank) > 0 THEN MODE() WITHIN GROUP (ORDER BY j.q_rank)

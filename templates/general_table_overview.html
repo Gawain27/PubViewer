@@ -1,0 +1,61 @@
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="table-title">{{ table_title }}</h2>
+    <form id="filter-form" method="GET" class="d-flex align-items-center">
+        {% for filter in filters %}
+        <div class="filter-group me-2">
+            <label for="{{ filter.name }}" class="form-label">{{ filter.label }}</label>
+            {% if filter.type == "StringFilter" %}
+            <input type="text" class="form-control" id="{{ filter.name }}" name="{{ filter.name }}" value="{{ request.args.get(filter.name, '') }}">
+            {% endif %}
+        </div>
+        {% endfor %}
+        <button type="submit" name="apply_filters" value="true" class="btn btn-primary ms-3">Apply Filters</button>
+    </form>
+</div>
+
+<div class="table-responsive">
+    <table class="table table-bordered table-hover">
+        <thead class="table-dark">
+            <tr>
+                {% if row_methods %}
+                <th>Actions</th>
+                {% endif %}
+                {% for column in columns %}
+                <th>{{ column }}</th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+            <tr>
+                {% if row_methods %}
+                <td>
+                    {% for method in row_methods %}
+                    <a href="{{ url_for(method.endpoint, **row) }}" class="btn btn-sm btn-primary">
+                        {{ method.label }}
+                    </a>
+                    {% endfor %}
+                </td>
+                {% endif %}
+                {% for column in columns %}
+                <td>{{ row[column] }}</td>
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="d-flex justify-content-between align-items-center mt-3">
+    <button class="btn btn-outline-primary"
+            {% if offset <= 0 %} disabled {% endif %}
+            onclick="window.location.href='?offset={{ offset - limit }}&limit={{ limit }}&{{ filter_query_string }}'">
+        ← Previous
+    </button>
+    <span>Showing results {{ offset + 1 }} to {{ offset + limit }} of {{ total_count }}</span>
+    <button class="btn btn-outline-primary"
+            {% if offset + limit >= total_count %} disabled {% endif %}
+            onclick="window.location.href='?offset={{ offset + limit }}&limit={{ limit }}&{{ filter_query_string }}'">
+        Next →
+    </button>
+</div>
