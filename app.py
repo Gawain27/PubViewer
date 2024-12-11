@@ -4,7 +4,7 @@ import os
 from flask import Flask, render_template
 from flask import request
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import create_engine, table
+from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from com.gwngames.client.general.GeneralDetailOverview import GeneralDetailOverview
@@ -120,9 +120,15 @@ def researchers():
     table_component = GeneralTableOverview(query_builder, "Researchers Overview", limit=100, image_field="Image url")
     table_component.alias = query_builder.alias
     table_component.entity_class = query_builder.entity_class
-    table_component.add_filter("Name", filter_type="string", label="Name")
-    table_component.add_filter("Avg. Conf. Rank", filter_type="string", label="Avg. Conf. Rank")
-
+    table_component.add_filter("Name", filter_type="string", label="Name", is_case_sensitive=False)
+    table_component.add_filter("COALESCE(STRING_AGG(DISTINCT i.name, ', '), 'N/A')",
+        filter_type="string", label="Interest", is_aggregated=True, is_case_sensitive=False)
+    table_component.add_filter(
+        "CASE WHEN COUNT(c.rank) > 0 THEN MODE() WITHIN GROUP (ORDER BY c.rank) ELSE '-' END",
+        filter_type="string", label="Avg. Conf. Rank", is_aggregated=True, is_case_sensitive=True)
+    table_component.add_filter("CASE WHEN COUNT(j.q_rank) > 0 THEN MODE() WITHIN GROUP (ORDER BY j.q_rank) ELSE '-' END",
+        filter_type="string", label="Avg. Q. Rank", is_aggregated=True, is_case_sensitive=False
+    )
     table_component.add_row_method("View Author Details", "researcher_detail")
 
     return render_template(

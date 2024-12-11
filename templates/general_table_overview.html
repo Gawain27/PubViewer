@@ -21,11 +21,16 @@
     <table class="table table-bordered table-hover">
         <thead class="table-dark">
             <tr>
+                {% if image_field %}
+                <th>Image</th>
+                {% endif %}
                 {% if row_methods %}
                 <th>Actions</th>
                 {% endif %}
                 {% for column in columns %}
-                <th>{{ column }}</th>
+                    {% if column != image_field %}
+                    <td>{{ column }}</td>
+                    {% endif %}
                 {% endfor %}
             </tr>
         </thead>
@@ -51,7 +56,9 @@
                 </td>
                 {% endif %}
                 {% for column in columns %}
-                <td>{{ row[column] }}</td>
+                    {% if column != image_field %}
+                    <td>{{ row[column] }}</td>
+                    {% endif %}
                 {% endfor %}
             </tr>
             {% endfor %}

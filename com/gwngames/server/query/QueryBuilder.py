@@ -1,3 +1,4 @@
+import hashlib
 from typing import Any, Dict, List, Optional, Union
 from sqlalchemy.orm import Session, DeclarativeMeta
 from sqlalchemy.sql import text
@@ -42,7 +43,7 @@ class QueryBuilder:
 
     def _next_param_name(self, base: str) -> str:
         """Generate a unique parameter name."""
-        param_name = f"{base.replace('.', '_')}_{self.param_counter}"
+        param_name = hashlib.md5(base.encode('utf-8')).hexdigest()[:10]
         self.param_counter += 1
         return param_name
 
@@ -53,6 +54,7 @@ class QueryBuilder:
         value: Any,
         custom: bool = False,
         condition_type: str = "AND",
+        is_case_sensitive: bool = True,
     ) -> "QueryBuilder":
         """
         Add a condition to the query (AND/OR) with support for modular operators.
@@ -62,7 +64,13 @@ class QueryBuilder:
         :param parameter: Field name to filter (e.g., "u.name").
         :param value: Value to match.
         :param condition_type: Type of condition ("AND" or "OR").
+        :param is_case_sensitive: Whether the condition should be case-sensitive.
         """
+
+        if not is_case_sensitive and operator.upper() == "LIKE":
+            parameter = f"LOWER({parameter})"
+            value = value.lower()
+
         param_name = self._next_param_name(parameter)
         condition = f"{parameter} {operator} :{param_name}" if not custom else value
 
@@ -76,7 +84,7 @@ class QueryBuilder:
 
         return self
 
-    def and_condition(self, parameter: str, value: Any, operator: str = "=", custom: bool = False) -> "QueryBuilder":
+    def and_condition(self, parameter: str, value: Any, operator: str = "=", custom: bool = False, is_case_sensitive: bool = True) -> "QueryBuilder":
         """
         Add an AND condition to the query.
 
@@ -85,9 +93,9 @@ class QueryBuilder:
         :param operator: SQL operator to use (e.g., '=', '<', 'LIKE').
         :param custom: If True, use a custom condition instead of parameter and value.
         """
-        return self.add_condition(operator, parameter, value, custom, condition_type="AND")
+        return self.add_condition(operator, parameter, value, custom, condition_type="AND", is_case_sensitive=is_case_sensitive)
 
-    def or_condition(self, parameter: str, value: Any, operator: str = "=", custom: bool = False) -> "QueryBuilder":
+    def or_condition(self, parameter: str, value: Any, operator: str = "=", custom: bool = False, is_case_sensitive: bool = True) -> "QueryBuilder":
         """
         Add an OR condition to the query.
 
@@ -96,7 +104,7 @@ class QueryBuilder:
         :param operator: SQL operator to use (e.g., '=', '<', 'LIKE').
         :param custom: If True, use a custom condition instead of parameter and value.
         """
-        return self.add_condition(operator, parameter, value, custom, condition_type="OR")
+        return self.add_condition(operator, parameter, value, custom, condition_type="OR", is_case_sensitive=is_case_sensitive)
 
     def join(
         self,
@@ -146,12 +154,13 @@ class QueryBuilder:
         return self
 
     def add_having_condition(
-        self,
-        operator: str,
-        parameter: str,
-        value: Any,
-        custom: bool = False,
-        condition_type: str = "AND",
+            self,
+            operator: str,
+            parameter: str,
+            value: Any,
+            custom: bool = False,
+            condition_type: str = "AND",
+            is_case_sensitive: bool = True
     ) -> "QueryBuilder":
         """
         Add a condition to the HAVING clause (AND/OR) with support for modular operators.
@@ -161,7 +170,12 @@ class QueryBuilder:
         :param parameter: Field name to filter (e.g., "u.name").
         :param value: Value to match.
         :param condition_type: Type of condition ("AND" or "OR").
+        :param is_case_sensitive: Whether the condition should be case-sensitive.
         """
+        if not is_case_sensitive and operator.upper() == "LIKE":
+            parameter = f"LOWER({parameter})"
+            value = value.lower()
+
         param_name = self._next_param_name(parameter)
         condition = f"{parameter} {operator} :{param_name}" if not custom else value
 
@@ -175,7 +189,7 @@ class QueryBuilder:
 
         return self
 
-    def having_and(self, parameter: str, value: Any, operator: str = "=", custom: bool = False) -> "QueryBuilder":
+    def having_and(self, parameter: str, value: Any, operator: str = "=", custom: bool = False, is_case_sensitive: bool = True) -> "QueryBuilder":
         """
         Add an AND condition to the HAVING clause.
 
@@ -184,9 +198,9 @@ class QueryBuilder:
         :param operator: SQL operator to use (e.g., '=', '<', 'LIKE').
         :param custom: If True, use a custom condition instead of parameter and value.
         """
-        return self.add_having_condition(operator, parameter, value, custom, condition_type="AND")
+        return self.add_having_condition(operator, parameter, value, custom, condition_type="AND", is_case_sensitive=is_case_sensitive)
 
-    def having_or(self, parameter: str, value: Any, operator: str = "=", custom: bool = False) -> "QueryBuilder":
+    def having_or(self, parameter: str, value: Any, operator: str = "=", custom: bool = False, is_case_sensitive: bool = True) -> "QueryBuilder":
         """
         Add an OR condition to the HAVING clause.
 
@@ -195,7 +209,7 @@ class QueryBuilder:
         :param operator: SQL operator to use (e.g., '=', '<', 'LIKE').
         :param custom: If True, use a custom condition instead of parameter and value.
         """
-        return self.add_having_condition(operator, parameter, value, custom, condition_type="OR")
+        return self.add_having_condition(operator, parameter, value, custom, condition_type="OR", is_case_sensitive=is_case_sensitive)
 
     def limit(self, limit: int) -> "QueryBuilder":
         """

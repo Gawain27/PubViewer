@@ -25,18 +25,23 @@ class GeneralTableOverview:
         self.filters = []
         self.row_methods = []
 
-    def add_filter(self, field_name: str, filter_type: str = "string", label: Optional[str] = None):
+    def add_filter(self, field_name: str, filter_type: str = "string", label: Optional[str] = None,
+                   is_aggregated: bool = False, is_case_sensitive: bool = True):
         """
         Add a filter to the table.
 
+        :param is_case_sensitive:
         :param field_name: The name of the field in the query to filter.
         :param filter_type: The type of the filter (e.g., "string").
         :param label: A label to display for the filter input.
+        :param is_aggregated: Whether the field is an aggregated field (applied in HAVING clause).
         """
         self.filters.append({
             "field_name": field_name,
             "filter_type": filter_type,
-            "label": label or field_name
+            "label": label or field_name,
+            "is_aggregated": is_aggregated,
+            "is_case_sensitive": is_case_sensitive
         })
 
     def add_row_method(self, label, endpoint_name):
@@ -58,11 +63,7 @@ class GeneralTableOverview:
             filter_value = request.args.get(filter["field_name"])
             if filter_value:
                 if filter["filter_type"] == "string":
-                    self.query_builder.and_condition(
-                        f"{self.query_builder.alias}.{filter['field_name']}",
-                        f"%{filter_value}%",
-                        operator="LIKE"
-                    )
+                    self.handle_string_filter(filter, filter_value)
 
         rows = []
         if request.args.get("apply_filters"):
@@ -100,3 +101,29 @@ class GeneralTableOverview:
             filter_query_string=filter_query_string,
             image_field=self.image_field,
         )
+
+    def handle_string_filter(self, filter, filter_value):
+        """
+        Handle string filters, applying them to the query builder.
+
+        :param filter: The filter definition.
+        :param filter_value: The value to filter by.
+        :param case_sensitive: Whether the filter should be case-sensitive.
+        """
+        field_name = filter["field_name"]
+        is_case_sensitive = filter["is_case_sensitive"]
+
+        if filter.get("is_aggregated", False):  # Check if field is aggregated
+            self.query_builder.having_and(
+                field_name,
+                f"%{filter_value}%",
+                operator="LIKE",
+                is_case_sensitive=is_case_sensitive
+            )
+        else:
+            self.query_builder.and_condition(
+                f"{self.query_builder.alias}.{field_name}",
+                f"%{filter_value}%",
+                operator="LIKE",
+                is_case_sensitive=is_case_sensitive
+            )
