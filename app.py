@@ -4,7 +4,7 @@ import os
 from flask import Flask, render_template
 from flask import request
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, table
 from sqlalchemy.orm import sessionmaker
 
 from com.gwngames.client.general.GeneralDetailOverview import GeneralDetailOverview
@@ -120,32 +120,8 @@ def researchers():
     table_component = GeneralTableOverview(query_builder, "Researchers Overview", limit=100, image_field="Image url")
     table_component.alias = query_builder.alias
     table_component.entity_class = query_builder.entity_class
-#    table_component.add_string_filter("Name", "a.name")
- #   table_component.add_string_filter(
-  #      label="Interest",
-   #     field="interests",
-#        sql_expression="COALESCE(STRING_AGG(DISTINCT i.name, ', '), '-')"
- #   )
-  #  table_component.add_string_filter(
-   #     label="Avg. Conf. Rank",
-    #    field="average_conference_rank",
-#        sql_expression="""
- #           CASE
-  #              WHEN COUNT(c.rank) > 0 THEN MODE() WITHIN GROUP (ORDER BY c.rank)
-   #             ELSE '-'
-    #        END
-     #   """
-#    )
- #   table_component.add_string_filter(
-  #      label="Avg. SJR",
-   #     field="average_q_rank",
-    #    sql_expression="""
-     #       CASE
-      #          WHEN COUNT(j.q_rank) > 0 THEN MODE() WITHIN GROUP (ORDER BY j.q_rank)
-       #         ELSE 'N/A'
-        #    END
- #       """
-  #  )
+    table_component.add_filter("Name", filter_type="string", label="Name")
+    table_component.add_filter("Avg. Conf. Rank", filter_type="string", label="Avg. Conf. Rank")
 
     table_component.add_row_method("View Author Details", "researcher_detail")
 

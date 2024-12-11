@@ -25,6 +25,20 @@ class GeneralTableOverview:
         self.filters = []
         self.row_methods = []
 
+    def add_filter(self, field_name: str, filter_type: str = "string", label: Optional[str] = None):
+        """
+        Add a filter to the table.
+
+        :param field_name: The name of the field in the query to filter.
+        :param filter_type: The type of the filter (e.g., "string").
+        :param label: A label to display for the filter input.
+        """
+        self.filters.append({
+            "field_name": field_name,
+            "filter_type": filter_type,
+            "label": label or field_name
+        })
+
     def add_row_method(self, label, endpoint_name):
         """
         Add a method to be triggered by a link in each row.
@@ -38,6 +52,17 @@ class GeneralTableOverview:
         """Render the table component with filters, buttons, and pagination."""
         offset = int(request.args.get("offset", 0))
         limit = self.limit
+
+        # Apply filters to the query builder
+        for filter in self.filters:
+            filter_value = request.args.get(filter["field_name"])
+            if filter_value:
+                if filter["filter_type"] == "string":
+                    self.query_builder.and_condition(
+                        f"{self.query_builder.alias}.{filter['field_name']}",
+                        f"%{filter_value}%",
+                        operator="LIKE"
+                    )
 
         rows = []
         if request.args.get("apply_filters"):
