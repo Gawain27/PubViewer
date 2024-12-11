@@ -46,11 +46,11 @@ class AuthorQuery:
         author_query.select(
             """
             a.id AS "Author ID",
-            a.name AS Name,
+            a.name AS "Name",
             a.role as Role,
             a.organization as Organization,
             a.image_url as "Image url",
-            a.homepage_url as Homepage,
+            a.homepage_url as "Homepage",
             COALESCE(g.author_id, 'N/A') AS "Scholar ID",
             COALESCE(g.profile_url, 'N/A') AS "Scholar Profile",
             COALESCE(g.verified, 'N/A') AS "Verified on",

@@ -53,28 +53,6 @@ class GeneralTableOverview:
         """
         self.row_methods.append({"label": label, "endpoint": endpoint_name})
 
-    def _apply_filters(self):
-        """
-        Apply filters to the QueryBuilder based on user input.
-        Dynamically handles aggregate and non-aggregate fields using QueryBuilder methods.
-        """
-        for filter_def in self.filters:
-            if filter_def["type"] == "StringFilter":
-                value = request.args.get(filter_def["name"])
-                if value:
-                    # Add wildcards for LIKE queries
-                    value = f"%{value}%"
-                    if filter_def["is_aggregate"]:
-                        # Use `having_and` for aggregate fields
-                        self.query_builder.having_and(
-                            filter_def["sql_expression"], value, operator="LIKE"
-                        )
-                    else:
-                        # Use `and_condition` for non-aggregate fields
-                        self.query_builder.and_condition(
-                            filter_def["field"], value, operator="LIKE"
-                        )
-
     def render(self):
         """Render the table component with filters, buttons, and pagination."""
         offset = int(request.args.get("offset", 0))
@@ -82,13 +60,12 @@ class GeneralTableOverview:
 
         rows = []
         if request.args.get("apply_filters"):
-            self._apply_filters()
             self.query_builder.offset(offset).limit(limit)
             rows = self.query_builder.execute()
 
-        countQuery = QueryBuilder(Context().get_session(), entity_class=self.entity_class,
-                                  alias=self.alias)
-        countQuery.select("count(*) as count")
+        countQuery = QueryBuilder(Context().get_session(), entity_class=self.query_builder.entity_class,
+                                  alias=self.query_builder.alias)
+        countQuery.select(f"COUNT(DISTINCT {self.query_builder.alias}.id) AS count")
         countQuery.conditions = self.query_builder.conditions
         countQuery.parameters = self.query_builder.parameters
         countQuery.join_clause = self.query_builder.join_clause
@@ -96,7 +73,7 @@ class GeneralTableOverview:
         countQuery.having_conditions = self.query_builder.having_conditions
         countQuery.group_by_fields = self.query_builder.group_by_fields
         count_records = countQuery.execute()
-        count_result = count_records.pop()["count"] if len(count_records) > 0 else 0
+        count_result = sum(record["count"] for record in count_records)
 
         columns = list(rows[0].keys()) if rows else []
 

@@ -1,15 +1,7 @@
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h2 class="table-title">{{ table_title }}</h2>
     <form id="filter-form" method="GET" class="d-flex align-items-center">
-        {% for filter in filters %}
-        <div class="filter-group me-2">
-            <label for="{{ filter.name }}" class="form-label">{{ filter.label }}</label>
-            {% if filter.type == "StringFilter" %}
-            <input type="text" class="form-control" id="{{ filter.name }}" name="{{ filter.name }}" value="{{ request.args.get(filter.name, '') }}">
-            {% endif %}
-        </div>
-        {% endfor %}
-        <button type="submit" name="apply_filters" value="true" class="btn btn-primary ms-3">Apply Filters</button>
+        <button type="submit" name="apply_filters" value="true" class="btn btn-primary ms-3">Search</button>
     </form>
 </div>
 

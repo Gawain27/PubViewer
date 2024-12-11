@@ -98,14 +98,14 @@ def publications():
 @app.route('/publication_details')
 def publication_details():
     # Get parameters from the URL
-    row_name = request.args.get('publication_title')
+    row_name = request.args.get('title')
 
-    query_builder = PublicationQuery.build_filtered_publication_query(ctx.get_session(), row_name)
+    query_builder = PublicationQuery.build_specific_publication_query(ctx.get_session(), row_name)
 
     data_viewer = GeneralDetailOverview(
         query_builder,
-        title_field="publication_title",
-        description_field="description"
+        title_field="Title",
+        description_field="Description"
     )
 
     return render_template(
@@ -156,15 +156,15 @@ def researchers():
 @app.route('/researcher_detail')
 def researcher_detail():
     # Get parameters from the URL
-    row_name = request.args.get('author_name')
+    row_name = request.args.get('name')
 
     query_builder = AuthorQuery.build_author_query_with_filter(ctx.get_session(), author_name=row_name)
 
     data_viewer = GeneralDetailOverview(
         query_builder,
-        title_field="author_name",
-        description_field="homepage_url",
-        image_field="image_url"
+        title_field="Name",
+        description_field="Homepage",
+        image_field="Image url"
     )
 
     return render_template(
