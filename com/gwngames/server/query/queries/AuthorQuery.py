@@ -118,6 +118,7 @@ class AuthorQuery:
             a.name AS Name,
             a.role AS Role,
             a.organization AS Organization,
+            a.image_url as "Image url",
             COALESCE(STRING_AGG(DISTINCT i.name, ', '), 'N/A') AS Interests,
             CASE 
                 WHEN COUNT(c.rank) > 0 THEN MODE() WITHIN GROUP (ORDER BY c.rank)

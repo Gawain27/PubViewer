@@ -1,25 +1,23 @@
-from sqlalchemy.orm import Session
-from sqlalchemy.ext.declarative import DeclarativeMeta
-from sqlalchemy import text
+from typing import Any, Dict, List, Optional, Union
+from sqlalchemy.orm import Session, DeclarativeMeta
+from sqlalchemy.sql import text
 from cachetools import LRUCache, cached
-from typing import Any, Dict, List, Optional
-
 
 class QueryBuilder:
     """
     A dynamic query builder for SQLAlchemy that supports table joins, dynamic WHERE clauses,
     ORDER BY, LIMIT, OFFSET, and result caching. Caching can be global, which is enough in most cases.
-    Specific caches should override this class
+    Specific caches should override this class.
     """
 
     # Global cache shared across all QueryBuilder instances
     global_cache: LRUCache = LRUCache(maxsize=1000)
 
     def __init__(
-            self,
-            session: Session,
-            entity_class: DeclarativeMeta,
-            alias: str,
+        self,
+        session: Session,
+        entity_class: DeclarativeMeta,
+        alias: str,
     ) -> None:
         """
         Initialize the QueryBuilder.
@@ -48,52 +46,66 @@ class QueryBuilder:
         self.param_counter += 1
         return param_name
 
-    def and_condition(self, parameter: str, value: Any, custom: bool = False) -> "QueryBuilder":
+    def add_condition(
+        self,
+        operator: str,
+        parameter: str,
+        value: Any,
+        custom: bool = False,
+        condition_type: str = "AND",
+    ) -> "QueryBuilder":
+        """
+        Add a condition to the query (AND/OR) with support for modular operators.
+
+        :param operator: SQL operator to use (e.g., '=', '<', '>', 'LIKE').
+        :param custom: If True, use a custom condition instead of parameter and value.
+        :param parameter: Field name to filter (e.g., "u.name").
+        :param value: Value to match.
+        :param condition_type: Type of condition ("AND" or "OR").
+        """
+        param_name = self._next_param_name(parameter)
+        condition = f"{parameter} {operator} :{param_name}" if not custom else value
+
+        if self.conditions:
+            self.conditions.append(f"{condition_type} {condition}")
+        else:
+            self.conditions.append(condition)
+
+        if not custom:
+            self.parameters[param_name] = value
+
+        return self
+
+    def and_condition(self, parameter: str, value: Any, operator: str = "=", custom: bool = False) -> "QueryBuilder":
         """
         Add an AND condition to the query.
 
-        :param custom: Defines a custom condition in value. Ignores parameter
         :param parameter: Field name to filter (e.g., "u.name").
         :param value: Value to match.
+        :param operator: SQL operator to use (e.g., '=', '<', 'LIKE').
+        :param custom: If True, use a custom condition instead of parameter and value.
         """
-        param_name = self._next_param_name(parameter)
-        condition = f"{parameter} = :{param_name}" if not custom else value
+        return self.add_condition(operator, parameter, value, custom, condition_type="AND")
 
-        if self.conditions:
-            self.conditions.append(f"AND {condition}")
-        else:
-            self.conditions.append(condition)
-
-        self.parameters[param_name] = value
-        return self
-
-    def or_condition(self, parameter: str, value: Any, custom: bool = False) -> "QueryBuilder":
+    def or_condition(self, parameter: str, value: Any, operator: str = "=", custom: bool = False) -> "QueryBuilder":
         """
         Add an OR condition to the query.
 
-        :param custom: Define a custom condition in value. Ignores parameter
         :param parameter: Field name to filter (e.g., "o.product_name").
         :param value: Value to match.
+        :param operator: SQL operator to use (e.g., '=', '<', 'LIKE').
+        :param custom: If True, use a custom condition instead of parameter and value.
         """
-        param_name = self._next_param_name(parameter)
-        condition = f"{parameter} = :{param_name}" if not custom else value
-
-        if self.conditions:
-            self.conditions.append(f"OR {condition}")
-        else:
-            self.conditions.append(condition)
-
-        self.parameters[param_name] = value
-        return self
+        return self.add_condition(operator, parameter, value, custom, condition_type="OR")
 
     def join(
-            self,
-            join_type: str,
-            other: "QueryBuilder",
-            join_alias: str,
-            on_condition: Optional[str] = None,
-            this_field: Optional[str] = None,
-            other_field: Optional[str] = None,
+        self,
+        join_type: str,
+        other: "QueryBuilder",
+        join_alias: str,
+        on_condition: Optional[str] = None,
+        this_field: Optional[str] = None,
+        other_field: Optional[str] = None,
     ) -> "QueryBuilder":
         """
         Add a JOIN clause to the query.
@@ -133,24 +145,57 @@ class QueryBuilder:
         self.order_by_clauses.append(f"{field} {'ASC' if ascending else 'DESC'}")
         return self
 
-    def having_and(self, parameter: str, value: Any, custom: bool = False) -> "QueryBuilder":
+    def add_having_condition(
+        self,
+        operator: str,
+        parameter: str,
+        value: Any,
+        custom: bool = False,
+        condition_type: str = "AND",
+    ) -> "QueryBuilder":
         """
-        Add an AND condition to the query.
+        Add a condition to the HAVING clause (AND/OR) with support for modular operators.
 
-        :param custom: custom and. ignores parameter and only uses value
+        :param operator: SQL operator to use (e.g., '=', '<', '>', 'LIKE').
+        :param custom: If True, use a custom condition instead of parameter and value.
         :param parameter: Field name to filter (e.g., "u.name").
         :param value: Value to match.
+        :param condition_type: Type of condition ("AND" or "OR").
         """
         param_name = self._next_param_name(parameter)
-        condition = f"{parameter} = :{param_name}" if not custom else value
+        condition = f"{parameter} {operator} :{param_name}" if not custom else value
 
         if self.having_conditions:
-            self.having_conditions.append(f"AND {condition}")
+            self.having_conditions.append(f"{condition_type} {condition}")
         else:
             self.having_conditions.append(condition)
 
-        self.parameters[param_name] = value
+        if not custom:
+            self.parameters[param_name] = value
+
         return self
+
+    def having_and(self, parameter: str, value: Any, operator: str = "=", custom: bool = False) -> "QueryBuilder":
+        """
+        Add an AND condition to the HAVING clause.
+
+        :param parameter: Field name to filter (e.g., "u.name").
+        :param value: Value to match.
+        :param operator: SQL operator to use (e.g., '=', '<', 'LIKE').
+        :param custom: If True, use a custom condition instead of parameter and value.
+        """
+        return self.add_having_condition(operator, parameter, value, custom, condition_type="AND")
+
+    def having_or(self, parameter: str, value: Any, operator: str = "=", custom: bool = False) -> "QueryBuilder":
+        """
+        Add an OR condition to the HAVING clause.
+
+        :param parameter: Field name to filter (e.g., "u.name").
+        :param value: Value to match.
+        :param operator: SQL operator to use (e.g., '=', '<', 'LIKE').
+        :param custom: If True, use a custom condition instead of parameter and value.
+        """
+        return self.add_having_condition(operator, parameter, value, custom, condition_type="OR")
 
     def limit(self, limit: int) -> "QueryBuilder":
         """
@@ -207,6 +252,6 @@ class QueryBuilder:
         group_by_clause = f" GROUP BY {', '.join(self.group_by_fields)}" if self.group_by_fields else ""
         limit_clause = f" LIMIT {self.limit_value}" if self.limit_value is not None else ""
         offset_clause = f" OFFSET {self.offset_value}" if self.offset_value is not None else ""
-        having_clause = f" HAVING {' AND '.join(self.having_conditions)}" if self.having_conditions else ""
+        having_clause = f" HAVING {' '.join(self.having_conditions)}" if self.having_conditions else ""
 
         return base_query + self.join_clause + where_clause + group_by_clause + having_clause + order_by_clause + limit_clause + offset_clause

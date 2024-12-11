@@ -7,42 +7,23 @@ from com.gwngames.server.query.QueryBuilder import QueryBuilder
 
 
 class GeneralTableOverview:
-    def __init__(self, query_builder, table_title, limit=100):
+    def __init__(self, query_builder, table_title, limit=100, image_field=None):
         """
         Initialize the GeneralTableOverview.
 
         :param query_builder: An instance of QueryBuilder configured for the query.
         :param table_title: Title of the table.
         :param limit: Number of rows per page.
+        :param image_field: The field in the row data containing the image URL.
         """
         self.query_builder: QueryBuilder = query_builder
         self.entity_class = None
         self.alias = None
         self.table_title = table_title
         self.limit = limit
+        self.image_field = image_field
         self.filters = []
         self.row_methods = []
-
-    def add_string_filter(self, label: str, field: str, sql_expression: Optional[str] = None):
-        """
-        Add a string filter for the field.
-
-        Automatically decides whether the filter is aggregate or non-aggregate
-        based on the presence of sql_expression.
-
-        :param label: Label for the filter (for UI purposes).
-        :param field: Field to filter (e.g., "a.name").
-        :param sql_expression: SQL expression to use for aggregate fields.
-        """
-        is_aggregate = sql_expression is not None
-        self.filters.append({
-            "type": "StringFilter",
-            "label": label,
-            "field": field,
-            "is_aggregate": is_aggregate,
-            "sql_expression": sql_expression or field,  # Use field if no custom SQL is provided
-            "name": field  # Unique identifier for the filter
-        })
 
     def add_row_method(self, label, endpoint_name):
         """
@@ -92,4 +73,5 @@ class GeneralTableOverview:
             limit=limit,
             total_count=count_result,
             filter_query_string=filter_query_string,
+            image_field=self.image_field,
         )

@@ -20,6 +20,15 @@
         <tbody>
             {% for row in rows %}
             <tr>
+                {% if image_field %}
+                <td>
+                    {% if row[image_field] %}
+                    <img src="{{ row[image_field] }}" alt="Image" style="width: 50px; height: 50px; object-fit: cover;" />
+                    {% else %}
+                    <span>No Image</span>
+                    {% endif %}
+                </td>
+                {% endif %}
                 {% if row_methods %}
                 <td>
                     {% for method in row_methods %}
