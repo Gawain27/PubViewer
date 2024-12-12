@@ -10,7 +10,7 @@ from com.gwngames.server.query.QueryBuilder import QueryBuilder
 
 class PublicationQuery:
     @staticmethod
-    def build_specific_publication_query(session, publication_title: str):
+    def build_specific_publication_query(session, pub_id: str):
         """
         Build a specific query for a publication, aggregating data useful for researchers.
         """
@@ -31,7 +31,7 @@ class PublicationQuery:
         publication_query.join("LEFT", author_query, "a", on_condition="a.id = ass.author_id")
 
         # Filter by title
-        publication_query.and_condition("", "lower(p.title) = '" + publication_title.lower() +"'", custom=True)
+        publication_query.and_condition("", "p.id = " + pub_id, custom=True)
 
         # Select fields and aggregations
         publication_query.select(
@@ -51,7 +51,9 @@ class PublicationQuery:
                 WHEN COUNT(j.q_rank) > 0 THEN MODE() WITHIN GROUP (ORDER BY j.q_rank)
                 ELSE '-'
             END AS "Journal Rank",
+            j.title AS "Journal",
             COALESCE(j.h_index, 0) AS "Journal H-Index",
+            c.acronym as "Conference",
             CASE 
                 WHEN COUNT(c.rank) > 0 THEN MODE() WITHIN GROUP (ORDER BY c.rank)
                 ELSE '-'
@@ -63,7 +65,8 @@ class PublicationQuery:
 
         # Group and limit
         publication_query.group_by(
-            "p.id", "p.title", "p.description", "p.publication_year", "p.publisher", "p.url", "j.h_index", "c.year"
+            "p.id", "p.title", "p.description", "p.publication_year", "p.publisher", "p.url",
+            "j.h_index", "c.year", "j.title", "c.acronym"
         )
         publication_query.limit(1)
 
@@ -74,7 +77,6 @@ class PublicationQuery:
         """
         Build an overview query for publications, including associated journal, conference, and Google Scholar data.
         """
-        # Base QueryBuilder for Publication
         publication_query = QueryBuilder(session, Publication, "p")
         journal_query = QueryBuilder(session, Journal, "j")
         conference_query = QueryBuilder(session, Conference, "c")
@@ -83,7 +85,6 @@ class PublicationQuery:
         author_query = QueryBuilder(session, Author, "a")
 
 
-        # Joins for relations
         publication_query.join(
             "LEFT", journal_query, "j", on_condition="j.id = p.journal_id"
         ).join(
@@ -96,14 +97,12 @@ class PublicationQuery:
             "LEFT", author_query, "a", on_condition="a.id = ass.author_id"
         )
 
-        # Filter the query to include only records meeting the conditions
         publication_query.and_condition("",
             """
             (c.rank IS NOT NULL OR j.q_rank IS NOT NULL OR gsp.id IS NOT NULL)
             """, custom=True
         )
 
-        # Select required fields and aggregations
         publication_query.select(
             """
             p.id AS ID,
@@ -126,7 +125,6 @@ class PublicationQuery:
             """
         )
 
-        # Grouping
         publication_query.group_by(
             "p.id", "p.title", "p.publication_year", "p.publisher"
         )

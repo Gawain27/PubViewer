@@ -11,6 +11,15 @@
         <div class="card-body">
             <h3 class="card-title">{{ title }}</h3>
             <p class="card-text">{{ description }}</p>
+            {% if row_methods %}
+            <div class="mt-3">
+                {% for method in row_methods %}
+                <a href="{{ url_for(method.endpoint, value=data[method.column_name]) }}" class="btn btn-sm btn-primary">
+                    {{ method.label }}
+                </a>
+                {% endfor %}
+            </div>
+            {% endif %}
         </div>
     </div>
 

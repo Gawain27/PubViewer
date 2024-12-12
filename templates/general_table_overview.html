@@ -4,6 +4,7 @@
         {% for filter in filters %}
         <div class="me-3">
             <label for="filter-{{ filter.field_name }}">{{ filter.label }}</label>
+            {% if filter.filter_type == "string" %}
             <input
                 type="text"
                 name="{{ filter.field_name }}"
@@ -11,6 +12,23 @@
                 class="form-control"
                 placeholder="Filter by {{ filter.label }}"
                 value="{{ request.args.get(filter.field_name, '') }}">
+            {% elif filter.filter_type == "integer" %}
+            <div class="d-flex align-items-center">
+                <input
+                    type="number"
+                    name="{{ filter.field_name }}_from"
+                    class="form-control me-1"
+                    placeholder="From"
+                    value="{{ request.args.get(filter.field_name ~ '_from', '') }}">
+                <span>-</span>
+                <input
+                    type="number"
+                    name="{{ filter.field_name }}_to"
+                    class="form-control ms-1"
+                    placeholder="To"
+                    value="{{ request.args.get(filter.field_name ~ '_to', '') }}">
+            </div>
+            {% endif %}
         </div>
         {% endfor %}
         <button type="submit" name="apply_filters" value="true" class="btn btn-primary ms-3">Search</button>

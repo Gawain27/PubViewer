@@ -1,0 +1,22 @@
+from com.gwngames.server.entity.base.Conference import Conference
+from com.gwngames.server.query.QueryBuilder import QueryBuilder
+
+
+class ConferenceQuery:
+    @staticmethod
+    def getConferences(session):
+        query_builder = QueryBuilder(session, Conference, alias="c")
+        query_builder.select("""
+    c.id as ID,
+    c.title as "Title",
+    c.acronym as "Acronym",
+    c.publisher as "Publisher",
+    c.year as "Year",
+    c.rank,
+    c.note,
+    c.dblp_link as "Dblp Link",
+    c.primary_for as "Primary For",
+    c.comments,
+    c.average_rating as "Average Rating"
+""")
+        return query_builder

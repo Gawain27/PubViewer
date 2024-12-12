@@ -11,7 +11,7 @@ from com.gwngames.server.query.QueryBuilder import QueryBuilder
 class AuthorQuery:
 
     @staticmethod
-    def build_author_query_with_filter(session, author_name: str):
+    def build_author_query_with_filter(session, author_id: int):
         # Base QueryBuilder for Author
         author_query = QueryBuilder(session, Author, "a")
         scholar_query = QueryBuilder(session, GoogleScholarAuthor, "g")
@@ -40,7 +40,7 @@ class AuthorQuery:
         )
 
         # Add WHERE condition for author name
-        author_query.and_condition("a.name", author_name)
+        author_query.and_condition("a.id", author_id)
 
         # Select required fields and aggregations
         author_query.select(

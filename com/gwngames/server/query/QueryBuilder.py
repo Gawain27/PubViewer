@@ -43,7 +43,8 @@ class QueryBuilder:
 
     def _next_param_name(self, base: str) -> str:
         """Generate a unique parameter name."""
-        param_name = hashlib.md5(base.encode('utf-8')).hexdigest()[:10]
+        hash_part = hashlib.md5(base.encode('utf-8')).hexdigest()[:10]
+        param_name = f"{hash_part}{self.param_counter}"
         self.param_counter += 1
         return param_name
 
@@ -245,7 +246,7 @@ class QueryBuilder:
 
         :return: List of query results as dictionaries.
         """
-        query_string = self._build_query_string()
+        query_string = self.build_query_string()
         query = text(query_string)
         result = self.session.execute(query, self.parameters)
 
@@ -254,7 +255,7 @@ class QueryBuilder:
         self.session.close()
         return result_set
 
-    def _build_query_string(self) -> str:
+    def build_query_string(self) -> str:
         """
         Construct the full SQL query string.
 
@@ -267,5 +268,5 @@ class QueryBuilder:
         limit_clause = f" LIMIT {self.limit_value}" if self.limit_value is not None else ""
         offset_clause = f" OFFSET {self.offset_value}" if self.offset_value is not None else ""
         having_clause = f" HAVING {' '.join(self.having_conditions)}" if self.having_conditions else ""
-
         return base_query + self.join_clause + where_clause + group_by_clause + having_clause + order_by_clause + limit_clause + offset_clause
+
