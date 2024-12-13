@@ -106,7 +106,23 @@
             background-color: #f2f2f2;
         }
 
+        .node circle {
+            fill: #69b3a2;
+            stroke: #404040;
+            stroke-width: 1.5px;
+        }
+
+        .node text {
+            font-size: 12px;
+            text-anchor: middle;
+        }
+
+        .link line {
+            stroke: #999;
+            stroke-width: 2px;
+        }
     </style>
+    <script src="https://d3js.org/d3.v6.min.js"></script>
 </head>
 <body>
     <!-- Navigation Bar -->
@@ -145,6 +161,7 @@
     <div class="container content">
         <div class="content-body">
             {{ content|safe }}
+            <script src="/static/js/graph.js"></script>
         </div>
     </div>
 

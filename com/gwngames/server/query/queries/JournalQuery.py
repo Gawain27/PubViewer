@@ -23,4 +23,5 @@ class JournalQuery:
             j.refs_per_doc as "References per Document",
             j.female_percent as "Female Percentage"
         """)
+        query_builder.and_condition("", "j.q_rank IS NOT NULL", custom=True)
         return query_builder

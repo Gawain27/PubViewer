@@ -108,28 +108,33 @@ class QueryBuilder:
         return self.add_condition(operator, parameter, value, custom, condition_type="OR", is_case_sensitive=is_case_sensitive)
 
     def join(
-        self,
-        join_type: str,
-        other: "QueryBuilder",
-        join_alias: str,
-        on_condition: Optional[str] = None,
-        this_field: Optional[str] = None,
-        other_field: Optional[str] = None,
-    ) -> "QueryBuilder":
+            self,
+            join_type: str,
+            other: Union["QueryBuilder", DeclarativeMeta],
+            join_alias: str,
+            on_condition: Optional[str] = None,
+            this_field: Optional[str] = None,
+            other_field: Optional[str] = None,
+    ) -> "QueryBuilderWithCTE":
         """
         Add a JOIN clause to the query.
 
         :param join_type: Type of join (e.g., "INNER", "LEFT").
-        :param other: QueryBuilder instance for the joined table.
+        :param other: QueryBuilder instance or ORM model for the joined table.
         :param join_alias: Alias for the joined table.
         :param on_condition: Custom ON condition for the join (overrides field-based joins).
         :param this_field: Field in the primary table to join on (used if `on_condition` is None).
         :param other_field: Field in the joined table to join on (used if `on_condition` is None).
         """
+        table_name = (
+            other.entity_class.__tablename__
+            if isinstance(other, QueryBuilder)
+            else other.__tablename__
+        )
         if on_condition:
-            self.join_clause += f" {join_type.upper()} JOIN {other.entity_class.__tablename__} {join_alias} ON {on_condition}"
+            self.join_clause += f" {join_type.upper()} JOIN {table_name} {join_alias} ON {on_condition}"
         elif this_field and other_field:
-            self.join_clause += f" {join_type.upper()} JOIN {other.entity_class.__tablename__} {join_alias} ON " \
+            self.join_clause += f" {join_type.upper()} JOIN {table_name} {join_alias} ON " \
                                 f"{self.alias}.{this_field} = {join_alias}.{other_field}"
         else:
             raise ValueError("Either 'on_condition' or both 'this_field' and 'other_field' must be provided.")

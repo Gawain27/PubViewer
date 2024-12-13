@@ -19,4 +19,5 @@ class ConferenceQuery:
     c.comments,
     c.average_rating as "Average Rating"
 """)
+        query_builder.and_condition("", "c.rank IS NOT NULL", custom=True)
         return query_builder

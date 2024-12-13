@@ -3,9 +3,10 @@ from com.gwngames.server.entity.base.Conference import Conference
 from com.gwngames.server.entity.base.Interest import Interest
 from com.gwngames.server.entity.base.Journal import Journal
 from com.gwngames.server.entity.base.Publication import Publication
-from com.gwngames.server.entity.base.Relationships import PublicationAuthor, AuthorInterest
+from com.gwngames.server.entity.base.Relationships import PublicationAuthor, AuthorInterest, AuthorCoauthor
 from com.gwngames.server.entity.variant.scholar.GoogleScholarAuthor import GoogleScholarAuthor
 from com.gwngames.server.query.QueryBuilder import QueryBuilder
+from com.gwngames.server.query.QueryBuilderWithCTE import RecursiveQueryBuilder
 
 
 class AuthorQuery:
@@ -151,3 +152,59 @@ class AuthorQuery:
 
         return author_query
 
+
+    @staticmethod
+    def build_author_network_query(session, start_author_id, max_depth=5):
+        """
+        Builds a query using recursive CTE to fetch author relationships up to a maximum depth.
+
+        :param session: SQLAlchemy session object.
+        :param start_author_id: The ID of the starting author.
+        :param max_depth: Maximum depth for transitive traversal.
+        :return: The query builder representing the recursive query.
+        """
+        # Base case query
+        base_query_builder = QueryBuilder(session, Author, "a")
+        base_query_builder.select(
+            "a.id AS start_author_id, a.name AS start_author_label, "
+            "c.id AS end_author_id, c.name AS end_author_label, 1 AS depth"
+        )
+        base_query_builder.join("INNER", AuthorCoauthor, "ac", "a.id = ac.author_id")
+        base_query_builder.join("INNER", Author, "c", "c.id = ac.coauthor_id")
+        base_query_builder.and_condition("a.id", start_author_id)
+        base_query_string = base_query_builder.build_query_string()
+
+        # Recursive step query
+        recursive_query = (
+            "SELECT "
+            "cte.end_author_id AS start_author_id, cte.end_author_label AS start_author_label, "
+            "c.id AS end_author_id, c.name AS end_author_label, cte.depth + 1 AS depth "
+            "FROM AuthorCTE AS cte "
+            "JOIN author_coauthor AS ac ON cte.end_author_id = ac.author_id "
+            "JOIN author AS c ON c.id = ac.coauthor_id "
+            f"WHERE cte.depth < {max_depth}"
+        )
+
+        # Define the recursive query builder
+        query_builder = RecursiveQueryBuilder(session, None, None)
+        query_builder.add_cte("AuthorCTE", f"{base_query_string} UNION ALL {recursive_query}")
+
+        # Final SELECT statement using the CTE
+        query_builder.select(
+            "cte.start_author_id, cte.start_author_label, "
+            "cte.end_author_id, cte.end_author_label, "
+            "COUNT(DISTINCT pa1.publication_id) AS author_total_pubs"
+        )
+        query_builder.join(
+            "LEFT", PublicationAuthor, "pa1", "pa1.author_id = cte.start_author_id"
+        )
+        query_builder.join(
+            "LEFT", PublicationAuthor, "pa2", "pa2.author_id = cte.end_author_id"
+        )
+        query_builder.and_condition("", "pa1.publication_id = pa2.publication_id", custom=True)
+        query_builder.group_by(
+            "cte.start_author_id, cte.start_author_label, cte.end_author_id, cte.end_author_label"
+        )
+        query_builder.parameters = base_query_builder.parameters
+
+        return query_builder
