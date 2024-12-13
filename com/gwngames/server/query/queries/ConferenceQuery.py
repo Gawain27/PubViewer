@@ -11,7 +11,6 @@ class ConferenceQuery:
     c.title as "Title",
     c.acronym as "Acronym",
     c.publisher as "Publisher",
-    c.year as "Year",
     c.rank,
     c.note,
     c.dblp_link as "Dblp Link",

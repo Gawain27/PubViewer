@@ -189,7 +189,7 @@ def conferences():
     table_component.add_filter("Title", "string", "Title", is_case_sensitive=False)
     table_component.add_filter("Acronym", "string", "Acronym", is_case_sensitive=False)
     table_component.add_filter("Rank", "string", "Rank", is_case_sensitive=True)
-    table_component.add_filter("Year", "integer", "Year")
+    table_component.add_filter("Publisher", "string", "Publisher", is_case_sensitive=False)
 
     return render_template(
         "template.html",
@@ -221,8 +221,9 @@ def author_network():
     Renders the author network page, starting from a given author ID.
     """
     start_author_id = request.args.get('value', None)
+    baseRedirectUrl = "/researcher_detail?name="
     return render_template("template.html", title="Author Network",
-                           content=render_template("graph_component.html", start_id=start_author_id))
+                           content=render_template("graph_component.html", start_id=start_author_id, base_path=baseRedirectUrl))
 
 
 @app.route("/generate-graph", methods=["POST"])
