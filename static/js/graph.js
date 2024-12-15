@@ -25,7 +25,9 @@ document.getElementById("graph-form").addEventListener("submit", function (event
 
             const simulation = d3.forceSimulation(nodes)
                 .force("link", d3.forceLink(links).id(d => d.id))
-                .force("charge", d3.forceManyBody().strength(-2000)) // Increased repulsion strength
+                .force("charge", d3.forceManyBody().strength(-300)
+                    .distanceMin(50) // Minimum distance for interaction
+                    .distanceMax(500)) // Maximum distance where forces are effective)
                 .force("center", d3.forceCenter(width / 1.5, height / 1.5));
 
             // Add zoom and drag behavior
@@ -43,27 +45,30 @@ document.getElementById("graph-form").addEventListener("submit", function (event
                 .attr("stroke", "#999")
                 .attr("stroke-width", 2);
 
-            // Add nodes
+            // Add nodes (images)
             const node = zoomLayer.append("g")
-                .selectAll("circle")
+                .selectAll("g")
                 .data(nodes)
-                .enter().append("circle")
-                .attr("r", 20) // Double the node size
-                .attr("fill", "#69b3a2")
+                .enter().append("g") // Grouping each node's image and label
                 .call(d3.drag()
                     .on("start", dragStarted)
                     .on("drag", dragged)
                     .on("end", dragEnded));
 
-            // Add labels inside nodes
-            const nodeLabels = zoomLayer.append("g")
-                .selectAll("text")
-                .data(nodes)
-                .enter().append("text")
-                .attr("font-size", "12px")
-                .attr("fill", "#fff")
+            // Append images to nodes
+            node.append("image")
+                .attr("xlink:href", d => d.image) // Load image from URL
+                .attr("width", 90) // Adjust size of the image
+                .attr("height", 90)
+                .attr("x", -45) // Center the image horizontally
+                .attr("y", -45); // Center the image vertically
+
+            // Append labels to nodes
+            node.append("text")
+                .attr("font-size", "16px")
+                .attr("fill", "#000")
                 .attr("text-anchor", "middle")
-                .attr("dy", ".35em") // Center text vertically
+                .attr("dy", 60) // Position the label below the image
                 .text(d => d.label);
 
             simulation.on("tick", () => {
@@ -73,13 +78,8 @@ document.getElementById("graph-form").addEventListener("submit", function (event
                     .attr("x2", d => d.target.x)
                     .attr("y2", d => d.target.y);
 
-                // Update node positions
-                node.attr("cx", d => d.x)
-                    .attr("cy", d => d.y);
-
-                // Update node label positions (always center them inside the nodes)
-                nodeLabels.attr("x", d => d.x)
-                          .attr("y", d => d.y);
+                // Update node group positions (affects both images and labels)
+                node.attr("transform", d => `translate(${d.x},${d.y})`);
             });
 
             function dragStarted(event, d) {

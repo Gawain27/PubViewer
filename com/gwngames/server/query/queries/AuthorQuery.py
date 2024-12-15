@@ -156,7 +156,8 @@ class AuthorQuery:
     @staticmethod
     def build_author_network_query(session, start_author_id, max_depth=5):
         """
-        Builds a query using recursive CTE to fetch author relationships up to a maximum depth.
+        Builds a query using recursive CTE to fetch author relationships up to a maximum depth,
+        including image URLs for start and end authors.
 
         :param session: SQLAlchemy session object.
         :param start_author_id: The ID of the starting author.
@@ -166,8 +167,8 @@ class AuthorQuery:
         # Base case query
         base_query_builder = QueryBuilder(session, Author, "a")
         base_query_builder.select(
-            "a.id AS start_author_id, a.name AS start_author_label, "
-            "c.id AS end_author_id, c.name AS end_author_label, 1 AS depth"
+            "a.id AS start_author_id, a.name AS start_author_label, a.image_url AS start_author_image_url, "
+            "c.id AS end_author_id, c.name AS end_author_label, c.image_url AS end_author_image_url, 1 AS depth"
         )
         base_query_builder.join("INNER", AuthorCoauthor, "ac", "a.id = ac.author_id")
         base_query_builder.join("INNER", Author, "c", "c.id = ac.coauthor_id")
@@ -177,8 +178,8 @@ class AuthorQuery:
         # Recursive step query
         recursive_query = (
             "SELECT "
-            "cte.end_author_id AS start_author_id, cte.end_author_label AS start_author_label, "
-            "c.id AS end_author_id, c.name AS end_author_label, cte.depth + 1 AS depth "
+            "cte.end_author_id AS start_author_id, cte.end_author_label AS start_author_label, cte.end_author_image_url AS start_author_image_url, "
+            "c.id AS end_author_id, c.name AS end_author_label, c.image_url AS end_author_image_url, cte.depth + 1 AS depth "
             "FROM AuthorCTE AS cte "
             "JOIN author_coauthor AS ac ON cte.end_author_id = ac.author_id "
             "JOIN author AS c ON c.id = ac.coauthor_id "
@@ -191,8 +192,8 @@ class AuthorQuery:
 
         # Final SELECT statement using the CTE
         query_builder.select(
-            "cte.start_author_id, cte.start_author_label, "
-            "cte.end_author_id, cte.end_author_label, "
+            "cte.start_author_id, cte.start_author_label, cte.start_author_image_url, "
+            "cte.end_author_id, cte.end_author_label, cte.end_author_image_url, "
             "COUNT(DISTINCT pa1.publication_id) AS author_total_pubs"
         )
         query_builder.join(
@@ -203,8 +204,10 @@ class AuthorQuery:
         )
         query_builder.and_condition("", "pa1.publication_id = pa2.publication_id", custom=True)
         query_builder.group_by(
-            "cte.start_author_id, cte.start_author_label, cte.end_author_id, cte.end_author_label"
+            "cte.start_author_id, cte.start_author_label, cte.start_author_image_url, "
+            "cte.end_author_id, cte.end_author_label, cte.end_author_image_url"
         )
         query_builder.parameters = base_query_builder.parameters
 
         return query_builder
+

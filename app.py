@@ -243,11 +243,12 @@ def generate_graph():
     for record in results:
         start_id, start_label = record["start_author_id"], record["start_author_label"]
         end_id, end_label = record["end_author_id"], record["end_author_label"]
+        start_image, end_image = record["start_author_image_url"], record["end_author_image_url"]
 
         if start_id not in nodes:
-            nodes[start_id] = {"id": start_id, "label": start_label}
+            nodes[start_id] = {"id": start_id, "label": start_label, "image": start_image}
         if end_id not in nodes:
-            nodes[end_id] = {"id": end_id, "label": end_label}
+            nodes[end_id] = {"id": end_id, "label": end_label, "image": end_image}
 
         links.append({"source": start_id, "target": end_id, "label": record["author_total_pubs"]})
 
