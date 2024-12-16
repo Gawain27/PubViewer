@@ -1,11 +1,12 @@
-<div class="graph-component" data-start-id="{{ start_id }}">
-    <form id="graph-form" method="POST" action="/generate-graph">
-        <label for="max-depth">Maximum Depth:</label>
-        <input type="number" id="max-depth" name="max_depth" min="1" value="5" required>
-        <button type="submit" class="btn btn-primary">Generate Network</button>
-    </form>
+<form id="graph-form" method="POST" action="/generate-graph">
+    <label for="node-label">Start Node Label:</label>
+    <select id="node-label" name="node_label">
+        <option value="{{ start_id }}" selected>{{ start_label }}</option>
+    </select>
 
-    <div id="graph-container">
-        <svg width="1000" height="600"></svg>
-    </div>
+    <button type="submit" class="btn btn-primary">Generate Network</button>
+</form>
+
+<div id="graph-container">
+    <svg width="1000" height="600"></svg>
 </div>

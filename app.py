@@ -11,6 +11,7 @@ from sqlalchemy.orm import sessionmaker
 from com.gwngames.client.general.GeneralDetailOverview import GeneralDetailOverview
 from com.gwngames.client.general.GeneralTableOverview import GeneralTableOverview
 from com.gwngames.config.Context import Context
+from com.gwngames.server.entity.base.Author import Author
 
 from com.gwngames.server.query.QueryBuilder import QueryBuilder
 from com.gwngames.server.query.QueryBuilderWithCTE import RecursiveQueryBuilder
@@ -221,15 +222,21 @@ def author_network():
     Renders the author network page, starting from a given author ID.
     """
     start_author_id = request.args.get('value', None)
-    baseRedirectUrl = "/researcher_detail?name="
+
+    author_data: QueryBuilder = QueryBuilder(ctx.get_session(), Author, 'a')
+    author_data.select("a.name, a.image_url")
+    author_data.and_condition("a.id", start_author_id)
+    result = author_data.execute()[0]
+
     return render_template("template.html", title="Author Network",
-                           content=render_template("graph_component.html", start_id=start_author_id, base_path=baseRedirectUrl))
+                           content=render_template("graph_component.html", start_id=start_author_id,
+                                                   start_image=result.get("image_url"), start_label=result.get("name")))
 
 
 @app.route("/generate-graph", methods=["POST"])
 def generate_graph():
     data = request.get_json()
-    max_depth = int(data.get("max_depth", 5))
+    max_depth = int(JsonReader(JsonReader.CONFIG_FILE_NAME).get_value("max_generative_depth"))
     start_author_id = int(data.get("start_author_id", 0))
 
     session = Context().get_session()
