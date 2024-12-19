@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import sys
@@ -212,7 +213,6 @@ def journals():
         content=table_component.render()
     )
 
-
 # ------------------------------------------------
 # NETWORKS
 # ------------------------------------------------
@@ -223,43 +223,116 @@ def author_network():
     """
     start_author_id = request.args.get('value', None)
 
-    author_data: QueryBuilder = QueryBuilder(ctx.get_session(), Author, 'a')
-    author_data.select("a.name, a.image_url")
-    author_data.and_condition("a.id", start_author_id)
-    result = author_data.execute()[0]
+    if not start_author_id:
+        return "Error: Author ID is required", 400
 
-    return render_template("template.html", title="Author Network",
-                           content=render_template("graph_component.html", start_id=start_author_id,
-                                                   start_image=result.get("image_url"), start_label=result.get("name")))
+    try:
+        author_data: QueryBuilder = QueryBuilder(ctx.get_session(), Author, 'a')
+        author_data.select("a.name, a.image_url")
+        author_data.and_condition("a.id", start_author_id)
+        result = author_data.execute()[0]
+
+        return render_template(
+            "template.html",
+            title="Author Network",
+            content=render_template(
+                "graph_component.html",
+                start_id=start_author_id,
+                start_image=result.get("image_url"),
+                start_label=result.get("name")
+            )
+        )
+    except IndexError:
+        return "Error: Author not found", 404
+    except Exception as e:
+        logging.error(f"Error in author_network: {str(e)}")
+        return "Internal Server Error", 500
 
 
 @app.route("/generate-graph", methods=["POST"])
 def generate_graph():
-    data = request.get_json()
-    max_depth = int(JsonReader(JsonReader.CONFIG_FILE_NAME).get_value("max_generative_depth"))
-    start_author_id = int(data.get("start_author_id", 0))
+    """
+    Generates a tree-structured author graph starting from a given author ID.
+    """
+    try:
+        # Log the incoming JSON
+        data = json.loads(request.get_data())
+        app.logger.debug("Received JSON payload: %s", data)
 
-    session = Context().get_session()
-    query = AuthorQuery.build_author_network_query(session, start_author_id=start_author_id, max_depth=max_depth)
-    results = query.execute()
+        # Check for start_author_id
+        start_author_id = data.get("start_author_id")
+        if not start_author_id:
+            app.logger.error("Missing start_author_id in the request.")
+            return jsonify({"error": "start_author_id is required"}), 400
 
-    # Transform the results into nodes and links
-    nodes = {}
-    links = []
+        start_author_id = int(start_author_id)  # Validate it's an integer
 
-    for record in results:
-        start_id, start_label = record["start_author_id"], record["start_author_label"]
-        end_id, end_label = record["end_author_id"], record["end_author_label"]
-        start_image, end_image = record["start_author_image_url"], record["end_author_image_url"]
+        if not start_author_id:
+            return jsonify({"error": "start_author_id is required"}), 400
 
-        if start_id not in nodes:
-            nodes[start_id] = {"id": start_id, "label": start_label, "image": start_image}
-        if end_id not in nodes:
-            nodes[end_id] = {"id": end_id, "label": end_label, "image": end_image}
+        # Fetch configuration
+        max_depth = int(JsonReader(JsonReader.CONFIG_FILE_NAME).get_value("max_generative_depth"))
 
-        links.append({"source": start_id, "target": end_id, "label": record["author_total_pubs"]})
+        # Query the author network
+        session = Context().get_session()
+        query = AuthorQuery.build_author_network_query(session, start_author_id=start_author_id, max_depth=max_depth)
+        results = query.execute()
 
-    return jsonify({"nodes": list(nodes.values()), "links": links})
+        # Transform query results into nodes and links
+        nodes = {}
+        links = []
+        visited = set()
+        parent_map = {}  # To track parent-child relationships
+
+        logging.basicConfig(level=logging.DEBUG)
+        logger = logging.getLogger(__name__)
+        logger.info("Graph generation started for start_author_id: %s", start_author_id)
+
+        def add_to_tree(start_id, start_label, start_image, end_id, end_label, end_image, total_pubs):
+            """
+            Adds nodes and links to form a tree structure.
+            """
+            if end_id in visited:
+                return  # Avoid cycles and re-visiting nodes
+
+            # Mark the end node as visited
+            visited.add(end_id)
+
+            # Add nodes
+            if start_id not in nodes:
+                nodes[start_id] = {"id": start_id, "label": start_label, "image": start_image}
+            if end_id not in nodes:
+                nodes[end_id] = {"id": end_id, "label": end_label, "image": end_image}
+
+            # Add parent-child link (tree structure)
+            links.append({
+                "source": start_id,
+                "target": end_id,
+                "label": total_pubs
+            })
+            parent_map[end_id] = start_id
+
+        # Initialize with the root node
+        visited.add(start_author_id)
+
+        for record in results:
+            start_id, start_label = record["start_author_id"], record["start_author_label"]
+            end_id, end_label = record["end_author_id"], record["end_author_label"]
+            start_image, end_image = record["start_author_image_url"], record["end_author_image_url"]
+            total_pubs = record["author_total_pubs"]
+
+            # Ensure a tree by adding only valid parent-child links
+            if start_id in visited and end_id not in visited:
+                add_to_tree(start_id, start_label, start_image, end_id, end_label, end_image, total_pubs)
+
+        return jsonify({"nodes": list(nodes.values()), "links": links})
+
+    except ValueError:
+        return jsonify({"error": "Invalid start_author_id"}), 400
+    except Exception as e:
+        logging.error(f"Error in generate_graph: {str(e)}")
+        return jsonify({"error": "Internal Server Error"}), 500
+
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0",port=5000,debug=True)

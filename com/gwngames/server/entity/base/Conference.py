@@ -14,7 +14,7 @@ class Conference(BaseEntity):
     VARIANT_ID = 150
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    title = Column(String, nullable=False)
+    title = Column(String, nullable=True)
     acronym = Column(String, nullable=True)
     publisher = Column(String, nullable=True)
     year = Column(Integer, nullable=True)
