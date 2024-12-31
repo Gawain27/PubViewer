@@ -1,0 +1,388 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="db80d762-0fca-42fc-a111-806da2eacda9" name="Changes" comment="revised foreign keys" />
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Flask Main" />
+        <option value="HTML File" />
+        <option value="JavaScript File" />
+        <option value="Python Script" />
+      </list>
+    </option>
+  </component>
+  <component name="FlaskConsoleOptions" custom-start-script="import sys&#10;sys.path.extend([WORKING_DIR_AND_PYTHON_PATHS])&#10;from flask.cli import ScriptInfo&#10;locals().update(ScriptInfo(create_app=None).load_app().make_shell_context())&#10;print(&quot;Python %s on %s\nApp: %s [%s]\nInstance: %s&quot; % (sys.version, sys.platform, app.import_name, app.env, app.instance_path))">
+    <envs>
+      <env key="FLASK_APP" value="app" />
+    </envs>
+    <option name="myCustomStartScript" value="import sys&#10;sys.path.extend([WORKING_DIR_AND_PYTHON_PATHS])&#10;from flask.cli import ScriptInfo&#10;locals().update(ScriptInfo(create_app=None).load_app().make_shell_context())&#10;print(&quot;Python %s on %s\nApp: %s [%s]\nInstance: %s&quot; % (sys.version, sys.platform, app.import_name, app.env, app.instance_path))" />
+    <option name="myEnvs">
+      <map>
+        <entry key="FLASK_APP" value="app" />
+      </map>
+    </option>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 3
+}</component>
+  <component name="ProjectId" id="2popOaOXWm8dHeWf1Npu8mLozGA" />
+  <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;DefaultHtmlFileTemplate&quot;: &quot;HTML File&quot;,
+    &quot;Flask server.Flask (app.py).executor&quot;: &quot;Run&quot;,
+    &quot;Flask server.PubViewer.executor&quot;: &quot;Run&quot;,
+    &quot;Python.Conference.executor&quot;: &quot;Run&quot;,
+    &quot;Python.ConferenceParser.executor&quot;: &quot;Run&quot;,
+    &quot;Python.Journal.executor&quot;: &quot;Run&quot;,
+    &quot;Python.PubViewer.executor&quot;: &quot;Run&quot;,
+    &quot;Python.Publication.executor&quot;: &quot;Run&quot;,
+    &quot;Python.PublicationQuery.executor&quot;: &quot;Run&quot;,
+    &quot;Python.initialize_db.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/gwn27/PycharmProjects/PubViewer&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  }
+}</component>
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="C:\Users\gwn27\PycharmProjects\PubViewer" />
+      <recent name="C:\Users\gwn27\PycharmProjects\PubViewer\com\gwngames\config" />
+      <recent name="C:\Users\gwn27\PycharmProjects\PubViewer\com\gwngames\utils" />
+    </key>
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="C:\Users\gwn27\PycharmProjects\PubViewer\static\js" />
+    </key>
+  </component>
+  <component name="RunManager" selected="Flask server.PubViewer">
+    <configuration name="PubViewer" type="PythonConfigurationType" factoryName="Python">
+      <module name="PubViewer" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="" />
+      <option name="IS_MODULE_SDK" value="false" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/app.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="Flask (app.py)" type="Python.FlaskServer" temporary="true" nameIsGenerated="true">
+      <module name="PubViewer" />
+      <option name="target" value="$PROJECT_DIR$/app.py" />
+      <option name="targetType" value="PATH" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="launchJavascriptDebuger" value="false" />
+      <method v="2" />
+    </configuration>
+    <configuration name="PubViewer" type="Python.FlaskServer">
+      <module name="PubViewer" />
+      <option name="target" value="$PROJECT_DIR$/app.py" />
+      <option name="targetType" value="PATH" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="" />
+      <option name="IS_MODULE_SDK" value="false" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="launchJavascriptDebuger" value="false" />
+      <method v="2" />
+    </configuration>
+    <configuration default="true" type="tests" factoryName="Doctests">
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="" />
+      <option name="IS_MODULE_SDK" value="false" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <module name="" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="" />
+      <option name="CLASS_NAME" value="" />
+      <option name="METHOD_NAME" value="" />
+      <option name="FOLDER_NAME" value="" />
+      <option name="TEST_TYPE" value="TEST_SCRIPT" />
+      <option name="PATTERN" value="" />
+      <option name="USE_PATTERN" value="false" />
+      <method v="2" />
+    </configuration>
+    <list>
+      <item itemvalue="Flask server.PubViewer" />
+      <item itemvalue="Flask server.Flask (app.py)" />
+      <item itemvalue="Python.PubViewer" />
+    </list>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Flask server.Flask (app.py)" />
+      </list>
+    </recent_temporary>
+  </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-js-predefined-d6986cc7102b-410509235cf1-JavaScript-PY-242.20224.428" />
+        <option value="bundled-python-sdk-80e8e15d2b92-39cff9de6eef-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-242.20224.428" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="db80d762-0fca-42fc-a111-806da2eacda9" name="Changes" comment="" />
+      <created>1733442251367</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1733442251367</updated>
+      <workItem from="1733442252762" duration="394000" />
+      <workItem from="1733446275826" duration="2629000" />
+      <workItem from="1733477279913" duration="62088000" />
+      <workItem from="1733744119222" duration="46712000" />
+      <workItem from="1733976968639" duration="596000" />
+      <workItem from="1733984915311" duration="48318000" />
+      <workItem from="1734057899520" duration="603000" />
+      <workItem from="1734061408028" duration="605000" />
+      <workItem from="1734065851454" duration="31778000" />
+      <workItem from="1734158971796" duration="47721000" />
+      <workItem from="1734553512225" duration="8382000" />
+    </task>
+    <task id="LOCAL-00001" summary="Reworked impl">
+      <option name="closed" value="true" />
+      <created>1733478347768</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1733478347768</updated>
+    </task>
+    <task id="LOCAL-00002" summary="Reworked impl">
+      <option name="closed" value="true" />
+      <created>1733529423961</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1733529423961</updated>
+    </task>
+    <task id="LOCAL-00003" summary="main overview">
+      <option name="closed" value="true" />
+      <created>1733652433089</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1733652433089</updated>
+    </task>
+    <task id="LOCAL-00004" summary="fix journal/conference model constraint">
+      <option name="closed" value="true" />
+      <created>1733750493202</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1733750493203</updated>
+    </task>
+    <task id="LOCAL-00005" summary="checkpoint">
+      <option name="closed" value="true" />
+      <created>1733864580804</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1733864580804</updated>
+    </task>
+    <task id="LOCAL-00006" summary="adapted general overviews/details">
+      <option name="closed" value="true" />
+      <created>1733919969289</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1733919969289</updated>
+    </task>
+    <task id="LOCAL-00007" summary="added image support">
+      <option name="closed" value="true" />
+      <created>1733943938477</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1733943938477</updated>
+    </task>
+    <task id="LOCAL-00008" summary="Filter reviewed logic">
+      <option name="closed" value="true" />
+      <created>1733944516042</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1733944516042</updated>
+    </task>
+    <task id="LOCAL-00009" summary="Filters working impl">
+      <option name="closed" value="true" />
+      <created>1733951450213</created>
+      <option name="number" value="00009" />
+      <option name="presentableId" value="LOCAL-00009" />
+      <option name="project" value="LOCAL" />
+      <updated>1733951450213</updated>
+    </task>
+    <task id="LOCAL-00010" summary="Stable searches integrated">
+      <option name="closed" value="true" />
+      <created>1734030391358</created>
+      <option name="number" value="00010" />
+      <option name="presentableId" value="LOCAL-00010" />
+      <option name="project" value="LOCAL" />
+      <updated>1734030391358</updated>
+    </task>
+    <task id="LOCAL-00011" summary="unstable client first ver.">
+      <option name="closed" value="true" />
+      <created>1734090975916</created>
+      <option name="number" value="00011" />
+      <option name="presentableId" value="LOCAL-00011" />
+      <option name="project" value="LOCAL" />
+      <updated>1734090975916</updated>
+    </task>
+    <task id="LOCAL-00012" summary="graph template fixes">
+      <option name="closed" value="true" />
+      <created>1734102065340</created>
+      <option name="number" value="00012" />
+      <option name="presentableId" value="LOCAL-00012" />
+      <option name="project" value="LOCAL" />
+      <updated>1734102065341</updated>
+    </task>
+    <task id="LOCAL-00013" summary="main">
+      <option name="closed" value="true" />
+      <created>1734102285237</created>
+      <option name="number" value="00013" />
+      <option name="presentableId" value="LOCAL-00013" />
+      <option name="project" value="LOCAL" />
+      <updated>1734102285237</updated>
+    </task>
+    <task id="LOCAL-00014" summary="graph image implementation">
+      <option name="closed" value="true" />
+      <created>1734286641353</created>
+      <option name="number" value="00014" />
+      <option name="presentableId" value="LOCAL-00014" />
+      <option name="project" value="LOCAL" />
+      <updated>1734286641353</updated>
+    </task>
+    <task id="LOCAL-00015" summary="added network generative support">
+      <option name="closed" value="true" />
+      <created>1734374163364</created>
+      <option name="number" value="00015" />
+      <option name="presentableId" value="LOCAL-00015" />
+      <option name="project" value="LOCAL" />
+      <updated>1734374163364</updated>
+    </task>
+    <task id="LOCAL-00016" summary="graph modularized">
+      <option name="closed" value="true" />
+      <created>1734603335444</created>
+      <option name="number" value="00016" />
+      <option name="presentableId" value="LOCAL-00016" />
+      <option name="project" value="LOCAL" />
+      <updated>1734603335444</updated>
+    </task>
+    <task id="LOCAL-00017" summary="revised foreign keys">
+      <option name="closed" value="true" />
+      <created>1735634756628</created>
+      <option name="number" value="00017" />
+      <option name="presentableId" value="LOCAL-00017" />
+      <option name="project" value="LOCAL" />
+      <updated>1735634756628</updated>
+    </task>
+    <option name="localTasksCounter" value="18" />
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State>
+              <option name="FILTERS">
+                <map>
+                  <entry key="branch">
+                    <value>
+                      <list>
+                        <option value="master" />
+                      </list>
+                    </value>
+                  </entry>
+                </map>
+              </option>
+            </State>
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="Reworked impl" />
+    <MESSAGE value="main overview" />
+    <MESSAGE value="fix journal/conference model constraint" />
+    <MESSAGE value="checkpoint" />
+    <MESSAGE value="adapted general overviews/details" />
+    <MESSAGE value="added image support" />
+    <MESSAGE value="Filter reviewed logic" />
+    <MESSAGE value="Filters working impl" />
+    <MESSAGE value="Stable searches integrated" />
+    <MESSAGE value="unstable client first ver." />
+    <MESSAGE value="graph template fixes" />
+    <MESSAGE value="main" />
+    <MESSAGE value="graph image implementation" />
+    <MESSAGE value="added network generative support" />
+    <MESSAGE value="graph modularized" />
+    <MESSAGE value="revised foreign keys" />
+    <option name="LAST_COMMIT_MESSAGE" value="revised foreign keys" />
+  </component>
+  <component name="com.intellij.coverage.CoverageDataManagerImpl">
+    <SUITE FILE_PATH="coverage/PubViewer$ConferenceParser.coverage" NAME="ConferenceParser Coverage Results" MODIFIED="1733683431027" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/com/gwngames/server/parser" />
+    <SUITE FILE_PATH="coverage/PubViewer$PublicationQuery.coverage" NAME="PublicationQuery Coverage Results" MODIFIED="1733684116587" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/com/gwngames/server/query/queries" />
+    <SUITE FILE_PATH="coverage/PubViewer$Flask__app_py_.coverage" NAME="Flask (app.py) Coverage Results" MODIFIED="1733746139912" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="" />
+    <SUITE FILE_PATH="coverage/PubViewer$Publication.coverage" NAME="Publication Coverage Results" MODIFIED="1733683681593" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/com/gwngames/server/entity/base" />
+    <SUITE FILE_PATH="coverage/PubViewer$PubViewer.coverage" NAME="PubViewer Coverage Results" MODIFIED="1734552192385" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="" />
+    <SUITE FILE_PATH="coverage/PubViewer$initialize_db.coverage" NAME="initialize_db Coverage Results" MODIFIED="1734030146524" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/com/gwngames/script" />
+    <SUITE FILE_PATH="coverage/PubViewer$Journal.coverage" NAME="Journal Coverage Results" MODIFIED="1733683702699" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/com/gwngames/server/entity/base" />
+    <SUITE FILE_PATH="coverage/PubViewer$Conference.coverage" NAME="Conference Coverage Results" MODIFIED="1733683783514" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/com/gwngames/server/entity/base" />
+  </component>
+</project>
