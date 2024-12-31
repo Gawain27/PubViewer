@@ -1,3 +1,8 @@
 {
-  "max_generative_depth": 2
+  "max_generative_depth": 2,
+  "db_url": "172.16.0.10",
+  "db_port": 5432,
+  "db_user": "pub",
+  "db_password": "pubpassword",
+  "db_name": "pub"
 }

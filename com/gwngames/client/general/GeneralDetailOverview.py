@@ -1,4 +1,5 @@
-from flask import render_template, request
+from flask import render_template
+
 
 class GeneralDetailOverview:
     def __init__(self, query_builder, title_field, description_field, image_field=None):

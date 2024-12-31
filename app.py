@@ -13,9 +13,7 @@ from com.gwngames.client.general.GeneralDetailOverview import GeneralDetailOverv
 from com.gwngames.client.general.GeneralTableOverview import GeneralTableOverview
 from com.gwngames.config.Context import Context
 from com.gwngames.server.entity.base.Author import Author
-
 from com.gwngames.server.query.QueryBuilder import QueryBuilder
-from com.gwngames.server.query.QueryBuilderWithCTE import RecursiveQueryBuilder
 from com.gwngames.server.query.queries.AuthorQuery import AuthorQuery
 from com.gwngames.server.query.queries.ConferenceQuery import ConferenceQuery
 from com.gwngames.server.query.queries.JournalQuery import JournalQuery
@@ -34,7 +32,17 @@ class ExcludeFilter(logging.Filter):
 ctx: Context = Context()
 ctx.set_current_dir(os.getcwd())
 
-DATABASE_URL = "postgresql+psycopg2://postgres:postgres@127.0.0.1:5432/postgres"
+# Initialize files for caching
+conf_reader = JsonReader(JsonReader.CONFIG_FILE_NAME)
+ctx.set_config(conf_reader)
+
+db_url = conf_reader.get_value("db_url")
+db_name = conf_reader.get_value("db_name")
+db_user = conf_reader.get_value("db_user")
+db_password = conf_reader.get_value("db_password")
+db_port = conf_reader.get_value("db_port")
+
+DATABASE_URL = f"postgresql+psycopg2://{db_user}:{db_password}@{db_url}:{db_port}/{db_name}"
 
 logging.basicConfig(level=logging.DEBUG)  # Or INFO, WARNING, ERROR
 logger = logging.getLogger(__name__)
@@ -52,10 +60,6 @@ try:
 except Exception as e:
     logger.error(f"Failed to initialize the session maker: {e}")
     raise
-
-# Initialize files for caching
-conf_reader = JsonReader(JsonReader.CONFIG_FILE_NAME)
-ctx.set_config(conf_reader)
 
 logger.info(AuthorQuery.build_author_network_query(session, 1, 1).build_query_string())
 
@@ -156,7 +160,7 @@ def researchers():
 def researcher_detail():
     row_name = request.args.get('Author ID')
 
-    query_builder = AuthorQuery.build_author_query_with_filter(ctx.get_session(), author_id=row_name)
+    query_builder = AuthorQuery.build_author_query_with_filter(ctx.get_session(), author_id=int(row_name))
 
     data_viewer = GeneralDetailOverview(
         query_builder,
