@@ -13,7 +13,8 @@ class GoogleScholarAuthor(BaseEntity):
     CLASS_ID = 1000
     VARIANT_ID = 50
 
-    id = Column(Integer, ForeignKey('author.id', ondelete='CASCADE'), primary_key=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    author_key = Column(Integer, ForeignKey('author.id', ondelete='CASCADE'), nullable=False)
     profile_url = Column(Text, nullable=False)  # Specific to Google Scholar profiles
     author_id = Column(String, nullable=False, unique=True)  # Google Scholar ID for the author
     verified = Column(String, nullable=True)

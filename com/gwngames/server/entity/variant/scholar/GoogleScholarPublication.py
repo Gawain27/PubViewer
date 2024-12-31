@@ -15,7 +15,8 @@ class GoogleScholarPublication(BaseEntity):
     CLASS_ID = 1010
     VARIANT_ID = 50
 
-    id = Column(Integer, ForeignKey('publication.id'), primary_key=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    publication_key = Column(Integer, ForeignKey('publication.id'), nullable=False)
     publication_id = Column(String, unique=True, nullable=False)  # Google Scholar's unique publication ID
     title_link = Column(Text, nullable=True)  # Link to the title
     pdf_link = Column(Text, nullable=True)  # Link to the PDF
