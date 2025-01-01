@@ -318,6 +318,12 @@ document.getElementById("graph-form").addEventListener("submit", function (event
         toYear
     });
 
+    const loadingPopup = document.getElementById("loading-popup");
+    const loadingTimeSpan = document.getElementById("loading-time");
+
+    let elapsedTime = 0;
+    let timerInterval;
+
     // Check if prev_id and prev_depth are equal to selectedNodeId and depth
     if (prev_id === selectedNodeId && prev_depth === depth) {
         console.log("Skipping API call as prev_id and prev_depth match selectedNodeId and depth.");
@@ -325,6 +331,15 @@ document.getElementById("graph-form").addEventListener("submit", function (event
         renderGraph();
     } else {
         console.log("Making API call as prev_id and prev_depth are different.");
+
+        // Show the loading popup and start the timer
+        loadingPopup.style.display = "block";
+        elapsedTime = 0; // Reset elapsed time
+        loadingTimeSpan.textContent = elapsedTime; // Reset display
+        timerInterval = setInterval(() => {
+            elapsedTime++;
+            loadingTimeSpan.textContent = elapsedTime;
+        }, 1000);
 
         fetch("/generate-graph", {
             method: "POST",
@@ -350,7 +365,12 @@ document.getElementById("graph-form").addEventListener("submit", function (event
                 prev_id = selectedNodeId;
                 prev_depth = depth;
             })
-            .catch((error) => console.error("Error during graph generation:", error));
+            .catch((error) => console.error("Error during graph generation:", error))
+            .finally(() => {
+                // Hide the loading popup and stop the timer
+                loadingPopup.style.display = "none";
+                clearInterval(timerInterval); // Stop the timer
+            });
     }
 });
 

@@ -2,10 +2,9 @@ import copy
 import json
 import logging
 import os
-import sys
 import traceback
 
-from flask import Flask, render_template, jsonify, session
+from flask import Flask, render_template, jsonify
 from flask import request
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import create_engine
@@ -44,7 +43,7 @@ db_user = conf_reader.get_value("db_user")
 db_password = conf_reader.get_value("db_password")
 db_port = conf_reader.get_value("db_port")
 
-DATABASE_URL = f"postgresql+psycopg2://{db_user}:{db_password}@{db_url}:{db_port}/{db_name}"
+DATABASE_URL = f"postgresql+psycopg://{db_user}:{db_password}@{db_url}:{db_port}/{db_name}"
 
 logging.basicConfig(level=logging.DEBUG)  # Or INFO, WARNING, ERROR
 logger = logging.getLogger(__name__)

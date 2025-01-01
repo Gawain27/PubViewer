@@ -1,18 +1,19 @@
 import hashlib
+import json
 from typing import Any, Dict, List, Optional, Union
 from sqlalchemy.orm import Session, DeclarativeMeta
 from sqlalchemy.sql import text
-from cachetools import LRUCache, cached
+from datetime import datetime, timedelta
 
 class QueryBuilder:
     """
     A dynamic query builder for SQLAlchemy that supports table joins, dynamic WHERE clauses,
-    ORDER BY, LIMIT, OFFSET, and result caching. Caching can be global, which is enough in most cases.
-    Specific caches should override this class.
+    ORDER BY, LIMIT, OFFSET, and result caching. Specific caches should override this class.
     """
 
     # Global cache shared across all QueryBuilder instances
-    global_cache: LRUCache = LRUCache(maxsize=1000)
+    global_cache: set = set()
+    cache_expiry_time: timedelta = timedelta(days=1)
 
     def __init__(
         self,
@@ -115,7 +116,7 @@ class QueryBuilder:
             on_condition: Optional[str] = None,
             this_field: Optional[str] = None,
             other_field: Optional[str] = None,
-    ) -> "QueryBuilderWithCTE":
+    ) -> "QueryBuilder":
         """
         Add a JOIN clause to the query.
 
@@ -244,21 +245,53 @@ class QueryBuilder:
         self.custom_select = custom_select
         return self
 
-    @cached(cache=global_cache)
+    def _cleanup_cache(self):
+        """Clean up expired entries from the global cache."""
+        now = datetime.now()
+        updated_cache = set()
+
+        for entry_str in self.global_cache:
+            entry = json.loads(entry_str)  # Deserialize the JSON string to a dictionary
+            if datetime.fromisoformat(entry['timestamp']) > now - self.cache_expiry_time:
+                updated_cache.add(entry_str)  # Keep the valid entry as a JSON string
+
+        self.global_cache = updated_cache
+
     def execute(self, close_session: bool = True) -> List[Dict[str, Any]]:
         """
         Execute the query and return the results as a list of dictionaries.
 
         :return: List of query results as dictionaries.
         """
+        self._cleanup_cache()
+
         query_string = self.build_query_string()
+        cache_key = hashlib.md5(query_string.encode('utf-8')).hexdigest()
+
+        # Search for cache entry
+        cache_entry_str = next((entry for entry in self.global_cache if json.loads(entry)['key'] == cache_key), None)
+
+        if cache_entry_str:
+            cache_entry = json.loads(cache_entry_str)
+            return cache_entry['data']
+
+        # Execute query
         query = text(query_string)
         result = self.session.execute(query, self.parameters)
 
         # Convert rows to dictionaries
         result_set = [row._asdict() for row in result]
+
+        # Add the result to the cache as a string
+        self.global_cache.add(json.dumps({
+            'key': cache_key,
+            'data': result_set,
+            'timestamp': datetime.now().isoformat()
+        }))
+
         if close_session:
             self.session.close()
+
         return result_set
 
     def build_query_string(self) -> str:
@@ -275,4 +308,5 @@ class QueryBuilder:
         offset_clause = f" OFFSET {self.offset_value}" if self.offset_value is not None else ""
         having_clause = f" HAVING {' '.join(self.having_conditions)}" if self.having_conditions else ""
         return base_query + self.join_clause + where_clause + group_by_clause + having_clause + order_by_clause + limit_clause + offset_clause
+
 
