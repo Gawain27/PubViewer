@@ -245,7 +245,7 @@ class QueryBuilder:
         return self
 
     @cached(cache=global_cache)
-    def execute(self) -> List[Dict[str, Any]]:
+    def execute(self, close_session: bool = True) -> List[Dict[str, Any]]:
         """
         Execute the query and return the results as a list of dictionaries.
 
@@ -257,7 +257,8 @@ class QueryBuilder:
 
         # Convert rows to dictionaries
         result_set = [row._asdict() for row in result]
-        self.session.close()
+        if close_session:
+            self.session.close()
         return result_set
 
     def build_query_string(self) -> str:

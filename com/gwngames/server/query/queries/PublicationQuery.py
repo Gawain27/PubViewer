@@ -25,7 +25,7 @@ class PublicationQuery:
         # Joins
         publication_query.join("LEFT", journal_query, "j", on_condition="j.id = p.journal_id")
         publication_query.join("LEFT", conference_query, "c", on_condition="c.id = p.conference_id")
-        publication_query.join("LEFT", google_scholar_query, "gsp", on_condition="gsp.id = p.id")
+        publication_query.join("LEFT", google_scholar_query, "gsp", on_condition="gsp.publication_key = p.id")
         publication_query.join("LEFT", citation_query, "gsc", on_condition="gsc.publication_id = gsp.id")
         publication_query.join("LEFT", assoc_query, "ass", on_condition="ass.publication_id = p.id")
         publication_query.join("LEFT", author_query, "a", on_condition="a.id = ass.author_id")
@@ -44,7 +44,9 @@ class PublicationQuery:
             p.url AS "Scholar URL",
             STRING_AGG(DISTINCT lower(SPLIT_PART(a.name, ' ', 2)), ', ') AS Authors,
             CASE 
-                WHEN COUNT(j.id) > 0 THEN MODE() WITHIN GROUP (ORDER BY REGEXP_REPLACE(j.sjr, '[^0-9.]', ''))
+                WHEN COUNT(j.id) > 0 THEN MODE() WITHIN GROUP (
+                    ORDER BY COALESCE(NULLIF(REGEXP_REPLACE(j.sjr, '[^0-9.]', ''), ''), '0')
+                )
                 ELSE '0'
             END AS "Journal Score",
             CASE 
@@ -90,7 +92,7 @@ class PublicationQuery:
         ).join(
             "LEFT", conference_query, "c", on_condition="c.id = p.conference_id"
         ).join(
-            "LEFT", google_scholar_query, "gsp", on_condition="gsp.id = p.id"
+            "LEFT", google_scholar_query, "gsp", on_condition="gsp.publication_key = p.id"
         ).join(
             "LEFT", assoc_query, "ass", on_condition="ass.publication_id = p.id"
         ).join(
@@ -99,7 +101,7 @@ class PublicationQuery:
 
         publication_query.and_condition("",
             """
-            (c.rank IS NOT NULL OR j.q_rank IS NOT NULL OR gsp.id IS NOT NULL)
+            (gsp.id IS NOT NULL)
             """, custom=True
         )
 
@@ -111,7 +113,9 @@ class PublicationQuery:
             p.publisher as Publisher,
             STRING_AGG(DISTINCT lower(a.name), ', ') AS Authors,
             CASE 
-                WHEN COUNT(j.id) > 0 THEN MODE() WITHIN GROUP (ORDER BY REGEXP_REPLACE(j.sjr, '[^0-9.]', ''))
+                WHEN COUNT(j.id) > 0 THEN MODE() WITHIN GROUP (
+                    ORDER BY COALESCE(NULLIF(REGEXP_REPLACE(j.sjr, '[^0-9.]', ''), ''), '0')
+                )
                 ELSE '0'
             END AS "Journal Score",
             CASE 
@@ -131,6 +135,81 @@ class PublicationQuery:
 
         return publication_query
 
+    @staticmethod
+    def build_author_publication_year_query(session, author1_id: int, author2_id: int) -> QueryBuilder:
+        # Initialize the QueryBuilder for the Publication table
+        query = QueryBuilder(session, Publication, "p")
+
+        # Join publication_author table for both authors
+        query.join(
+            "INNER", PublicationAuthor, "pa1",
+            on_condition="p.id = pa1.publication_id"
+        ).and_condition("pa1.author_id", author1_id)
+
+        query.join(
+            "INNER", PublicationAuthor, "pa2",
+            on_condition="p.id = pa2.publication_id"
+        ).and_condition("pa2.author_id", author2_id)
+
+        # Add condition to ensure journal_id or conference_id exists
+        query.and_condition(
+            value="(p.journal_id IS NOT NULL OR p.conference_id IS NOT NULL)",
+            parameter="",
+            custom=True
+        )
+
+        # Add condition to ensure publication_year is not null
+        query.and_condition(
+            value="p.publication_year IS NOT NULL",
+            parameter="",
+            custom=True
+        )
+
+        # Select publication year and count
+        query.select(
+            "p.publication_year AS publication_year, COUNT(p.id) AS publication_count"
+        ).group_by(
+            "p.publication_year"
+        )
+
+        return query
+
+    @staticmethod
+    def build_author_publication_query(session, author1_id: int, author2_id: int) -> QueryBuilder:
+        # Initialize the QueryBuilder for the Publication table
+        query = QueryBuilder(session, Publication, "p")
+
+        # Join publication_author table for both authors
+        query.join(
+            "INNER", PublicationAuthor, "pa1",
+            on_condition="p.id = pa1.publication_id"
+        ).and_condition("pa1.author_id", author1_id)
+
+        query.join(
+            "INNER", PublicationAuthor, "pa2",
+            on_condition="p.id = pa2.publication_id"
+        ).and_condition("pa2.author_id", author2_id)
+
+        # Join with journal and conference tables
+        query.join(
+            "LEFT", Journal, "j", on_condition="p.journal_id = j.id"
+        ).join(
+            "LEFT", Conference, "c", on_condition="p.conference_id = c.id"
+        )
+
+        query.and_condition(
+            value="(j.q_rank IS NOT NULL OR c.rank IS NOT NULL)",
+            parameter="",
+            custom=True
+        )
+
+        query.select(
+            "COALESCE(j.q_rank, c.rank) AS rank_name, COUNT(p.id) AS rank_total_pubs"
+        ).group_by(
+            "rank_name"
+        )
+
+        return query
 
 
 

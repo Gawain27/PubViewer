@@ -6,7 +6,6 @@ from com.gwngames.server.entity.base.Publication import Publication
 from com.gwngames.server.entity.base.Relationships import PublicationAuthor, AuthorInterest, AuthorCoauthor
 from com.gwngames.server.entity.variant.scholar.GoogleScholarAuthor import GoogleScholarAuthor
 from com.gwngames.server.query.QueryBuilder import QueryBuilder
-from com.gwngames.server.query.QueryBuilderWithCTE import RecursiveQueryBuilder
 
 
 class AuthorQuery:
@@ -25,7 +24,7 @@ class AuthorQuery:
 
         # Joins for relations
         author_query.join(
-            "LEFT", scholar_query, "g", on_condition="a.id = g.id"
+            "LEFT", scholar_query, "g", on_condition="a.id = g.author_key"
         ).join(
             "LEFT", publication_author_query, "pa", on_condition="a.id = pa.author_id"
         ).join(
@@ -67,7 +66,11 @@ class AuthorQuery:
                 ELSE 'N/A'
             END AS "Avg. Journal Rank",
             CASE 
-                WHEN COUNT(j.sjr) > 0 THEN AVG(CAST(REGEXP_REPLACE(j.sjr, '[^0-9.]', '') AS FLOAT))
+                WHEN COUNT(j.sjr) > 0 THEN AVG(
+                    CAST(
+                        COALESCE(NULLIF(REGEXP_REPLACE(j.sjr, '[^0-9.]', ''), ''), '0') AS FLOAT
+                    )
+                )
                 ELSE 0
             END AS "Avg. SJR Score"
             """
@@ -109,7 +112,7 @@ class AuthorQuery:
         ).join(
             "LEFT", interest_query, "i", on_condition="i.id = ai.interest_id"
         ).join(
-            "LEFT", google_scholar_query, "gsa", on_condition="gsa.id = a.id"
+            "LEFT", google_scholar_query, "gsa", on_condition="gsa.author_key = a.id"
         )
 
         # Select required fields and aggregations with significant aliases
@@ -130,7 +133,11 @@ class AuthorQuery:
                 ELSE '-'
             END AS "Avg. Journal Rank",
             CASE 
-                WHEN COUNT(j.sjr) > 0 THEN AVG(CAST(REGEXP_REPLACE(j.sjr, '[^0-9.]', '') AS FLOAT))
+                WHEN COUNT(j.sjr) > 0 THEN AVG(
+                    CAST(
+                        COALESCE(NULLIF(REGEXP_REPLACE(j.sjr, '[^0-9.]', ''), ''), '0') AS FLOAT
+                    )
+                )
                 ELSE 0
             END AS "Avg. SJR Score"
             """
@@ -142,8 +149,6 @@ class AuthorQuery:
         ).having_and("", value=
             """
             (
-                COUNT(c.rank) > 0 OR
-                COUNT(j.q_rank) > 0 OR
                 gsa.author_id IS NOT NULL
             )
             """,
@@ -152,69 +157,63 @@ class AuthorQuery:
 
         return author_query
 
+
     @staticmethod
-    def build_author_network_query(session, start_author_id, max_depth=5):
-        """
-        Builds a query using RecursiveQueryBuilder to fetch author relationships dynamically,
-        including the total publications shared between two authors.
+    def build_author_group_query(session, author_id):
+        query_builder = QueryBuilder(session, Publication, "p")
 
-        :param session: SQLAlchemy session object.
-        :param start_author_id: The ID of the starting author.
-        :param max_depth: Maximum depth for traversal.
-        :return: RecursiveQueryBuilder instance representing the query.
-        """
-        # Base case: Start with direct coauthors of the starting author
-        base_query_builder = QueryBuilder(session, Author, "a")
-        base_query_builder.select(
-            "a.id AS start_author_id, a.name AS start_author_label, a.image_url AS start_author_image_url, "
-            "c.id AS end_author_id, c.name AS end_author_label, c.image_url AS end_author_image_url, "
-            "ARRAY[a.id] AS path, 1 AS depth"
-        )
-        base_query_builder.join("INNER", AuthorCoauthor, "ac", "a.id = ac.author_id")
-        base_query_builder.join("INNER", Author, "c", "c.id = ac.coauthor_id")
-        base_query_builder.and_condition("a.id", start_author_id)
-        base_query_string = base_query_builder.build_query_string()
-
-        # Recursive case: Extend the network based on relationships
-        recursive_query = (
-            "SELECT "
-            "cte.end_author_id AS start_author_id, cte.end_author_label AS start_author_label, "
-            "cte.end_author_image_url AS start_author_image_url, "
-            "c.id AS end_author_id, c.name AS end_author_label, c.image_url AS end_author_image_url, "
-            "cte.path || c.id AS path, cte.depth + 1 AS depth "
-            "FROM AuthorCTE AS cte "
-            "JOIN author_coauthor AS ac ON cte.end_author_id = ac.author_id "
-            "JOIN author AS c ON c.id = ac.coauthor_id "
-            f"WHERE cte.depth < {max_depth} AND c.id != ALL(cte.path)"
+        # Join necessary tables
+        query_builder.join(
+            "INNER", PublicationAuthor, "pa_start", on_condition="p.id = pa_start.publication_id"
+        ).join(
+            "INNER", Author, "start_author", on_condition="pa_start.author_id = start_author.id"
+        ).join(
+            "INNER", GoogleScholarAuthor, "start_gs", on_condition="start_author.id = start_gs.author_key"
+        ).join(
+            "INNER", PublicationAuthor, "pa_end", on_condition="p.id = pa_end.publication_id"
+        ).join(
+            "INNER", Author, "end_author", on_condition="pa_end.author_id = end_author.id"
+        ).join(
+            "INNER", GoogleScholarAuthor, "end_gs", on_condition="end_author.id = end_gs.author_key"
+        ).join(
+            "LEFT", Conference, "c", on_condition="p.conference_id = c.id"
+        ).join(
+            "LEFT", Journal, "j", on_condition="p.journal_id = j.id"
         )
 
-        # Recursive QueryBuilder setup
-        query_builder = RecursiveQueryBuilder(session, None, None)
-        query_builder.add_cte("AuthorCTE", f"{base_query_string} UNION ALL {recursive_query}")
+        # Add filters
+        query_builder.and_condition("start_author.id", author_id)
+        query_builder.and_condition("", "(j.q_rank IS NOT NULL or c.rank IS NOT NULL)", custom=True)
 
-        # Final SELECT with total publications
+        # Add SELECT clause
         query_builder.select(
-            "cte.start_author_id, cte.start_author_label, cte.start_author_image_url, "
-            "cte.end_author_id, cte.end_author_label, cte.end_author_image_url, "
-            "cte.depth, "
-            "COALESCE(COUNT(pa1.publication_id), 0) AS author_total_pubs"
+            """
+            start_author.id AS start_author_id,
+            start_author.name AS start_author_label,
+            start_author.image_url AS start_author_image_url,
+            CONCAT(start_author.role, ' ', start_author.organization) AS start_author_info,
+            end_author.id AS end_author_id,
+            end_author.name AS end_author_label,
+            end_author.image_url AS end_author_image_url,
+            CONCAT(end_author.role, ' ', end_author.organization) AS end_author_info,
+            COUNT(p.id) AS author_total_pubs,
+            MODE() WITHIN GROUP (ORDER BY c.rank) AS avg_conference_rank,
+            MODE() WITHIN GROUP (ORDER BY j.q_rank) AS avg_journal_rank
+            """
         )
-        query_builder.join(
-            "LEFT", PublicationAuthor, "pa1", "pa1.author_id = cte.start_author_id"
-        )
-        query_builder.join(
-            "LEFT", PublicationAuthor, "pa2", "pa2.author_id = cte.end_author_id"
-        )
-        query_builder.and_condition("", "pa1.publication_id = pa2.publication_id", custom=True)
-        query_builder.group_by(
-            "cte.start_author_id, cte.start_author_label, cte.start_author_image_url, "
-            "cte.end_author_id, cte.end_author_label, cte.end_author_image_url, cte.depth"
-        )
-        query_builder.order_by("cte.depth", ascending=True)
-        query_builder.order_by("cte.start_author_id", ascending=True)
-        query_builder.order_by("cte.end_author_id", ascending=True)
 
-        query_builder.parameters = base_query_builder.parameters
+        # Group by necessary columns
+        query_builder.group_by(
+            "start_author.id",
+            "start_author.name",
+            "start_author.image_url",
+            "CONCAT(start_author.role, ' ', start_author.organization)",
+            "end_author.id",
+            "end_author.name",
+            "end_author.image_url",
+            "CONCAT(end_author.role, ' ', end_author.organization)"
+        )
+
         return query_builder
 
 
