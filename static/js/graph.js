@@ -1,17 +1,98 @@
+// ======================================================
+// Configurations
+// ======================================================
 const GRAPH_DIMENSIONS = { width: 1000, height: 600 };
+
 const FORCE_SETTINGS = {
-    linkDistance: 200,
     linkStrength: 1,
     chargeStrength: -300,
     collideRadius: 60,
     collideStrength: 1,
+    linkDistanceScale: 5,
+    zoomStep: 1.1,
+    simulationMaxRuntime: 5000
 };
+
+const LINK_WIDTH_SCALE = d3.scaleLinear()
+    .domain([0, 50])   // domain (up to 50 publications for max thickness)
+    .range([1, 8])    // min thickness 1, max thickness 8
+    .clamp(true);      // do not exceed the range
+
+// ======================================================
+// Global data
+// ======================================================
 let graphData = { nodes: [], links: [] };
 let prev_id = 0;
 let prev_depth = 0;
+let zoomBehavior;
 
+// ======================================================
+// Utility: Color logic for ranks
+// ======================================================
+function getConfColor(rank) {
+    switch (rank.trim().toUpperCase()) {
+        case "A*": return "#008000";     // Green
+        case "A":  return "#9ACD32";     // Yellow-Green
+        case "B":  return "#FFFF00";     // Yellow
+        case "C":  return "#FFA500";     // Orange
+        default:   return "#FF0000";     // Red
+    }
+}
+
+function getJournColor(rank) {
+    switch (rank.trim().toUpperCase()) {
+        case "Q1": return "#008000";     // Green
+        case "Q2": return "#9ACD32";     // Yellow-Green
+        case "Q3": return "#FFFF00";     // Yellow
+        case "Q4": return "#FFA500";     // Orange
+        default:   return "#FF0000";     // Red
+    }
+}
+
+/**
+ * Linearly blend two hex colors by 50/50
+ */
+function blendColors(color1, color2) {
+    const c1 = d3.color(color1).rgb();
+    const c2 = d3.color(color2).rgb();
+
+    // For a simple 50/50 blend, just use d3.interpolateRgb
+    return d3.interpolateRgb(c1, c2)(0.5);
+}
+
+/**
+ *  Get link color based on the user’s selected conf/journal rank filters
+ *  If both are defined, blend. If only conf is defined, return conf color.
+ *  If only journ is defined, return journ color. Otherwise red.
+ */
+function getLinkColor(link, selectedConfRank, selectedJournRank) {
+    if (selectedConfRank && selectedJournRank) {
+        const cColor = getConfColor(selectedConfRank);
+        const jColor = getJournColor(selectedJournRank);
+        return blendColors(cColor, jColor);
+    } else if (selectedConfRank) {
+        return getConfColor(selectedConfRank);
+    } else if (selectedJournRank) {
+        return getJournColor(selectedJournRank);
+    } else {
+        if (link.avg_conf_rank && link.avg_conf_rank !== "" && link.avg_journal_rank && link.avg_journal_rank !== ""){
+            const cColor = getConfColor(link.avg_conf_rank);
+            const jColor = getJournColor(link.avg_journal_rank);
+            return blendColors(cColor, jColor);
+        } else if (link.avg_conf_rank && link.avg_conf_rank !== ""){
+            return getConfColor(link.avg_conf_rank);
+        } else if (link.avg_journal_rank && link.avg_journal_rank !== ""){
+            return getJournColor(link.avg_journal_rank);
+        } else {
+            return "#FF0000";
+        }
+    }
+}
+
+// ======================================================
 // Updates the dropdown labels with graph nodes
-function updateNodeDropdown() {
+// ======================================================
+function updateNodeDropdown(selectedId) {
     console.log("Updating node dropdown...");
     const nodeLabelDropdown = document.getElementById("node-label");
     if (!nodeLabelDropdown) {
@@ -19,15 +100,29 @@ function updateNodeDropdown() {
         return;
     }
 
-    // Keep the default option (selected="selected") if it exists
-    const defaultOption = nodeLabelDropdown.querySelector("option[selected]");
+    let defaultOption;
+    if (selectedId == null) {
+        defaultOption = nodeLabelDropdown.querySelector("option[selected]");
+        console.log("Id selected is null, selecting default option");
+    } else {
+        const options = nodeLabelDropdown.options;
+        let found = false;
+        for (let i = 0; i < options.length; i++) {
+            if (options[i].value === selectedId) {
+                nodeLabelDropdown.selectedIndex = i;
+                found = true;
+                break;
+            }
+        }
+        console.log("Found previously selected id: " + found);
+        defaultOption = nodeLabelDropdown.options[nodeLabelDropdown.selectedIndex];
+    }
     console.log("Default option retained:", defaultOption?.outerHTML);
 
     nodeLabelDropdown.innerHTML = defaultOption.outerHTML;
 
     graphData.nodes.forEach(({ id, label }) => {
         if (!nodeLabelDropdown.querySelector(`option[value="${id}"]`)) {
-            console.log(`Adding new option to dropdown: ID=${id}, Label=${label}`);
             const newOption = document.createElement("option");
             newOption.value = id;
             newOption.textContent = label;
@@ -37,7 +132,10 @@ function updateNodeDropdown() {
     console.log("Dropdown update complete.");
 }
 
-// Merges new nodes into existing graph data while avoiding duplication
+// ======================================================
+// Merges new nodes/links into existing graph data
+// while avoiding duplication
+// ======================================================
 function mergeGraphData(newNodes, newLinks) {
     console.log("Merging new graph data...");
     console.log("Existing nodes:", graphData.nodes);
@@ -56,131 +154,140 @@ function mergeGraphData(newNodes, newLinks) {
     // Add nodes
     newNodes.forEach((node) => {
         if (!alreadyExists(graphData.nodes, node.id)) {
-            console.log("Adding new node:", node);
             graphData.nodes.push(node);
-        } else {
-            console.log("Node already exists, skipping:", node);
         }
     });
 
     // Add links
     newLinks.forEach((link) => {
         if (!linkExists(link)) {
-            console.log("Adding new link:", link);
             graphData.links.push(link);
-        } else {
-            console.log("Link already exists, skipping:", link);
         }
     });
 
     console.log("Merge complete. Updated graph data:", graphData);
 }
 
-/**
- * Calculates pub_count for each link based on the provided filters.
- *
- * @param {string} fromYear       - user input (could be "")
- * @param {string} toYear         - user input (could be "")
- * @param {string} conferenceRank - user input (could be "")
- * @param {string} journalRank    - user input (could be "")
- */
-function updatePubCount(fromYear, toYear, conferenceRank, journalRank) {
-    console.log("Updating pub_count for links...");
-    console.log(`Input Parameters - fromYear: ${fromYear}, toYear: ${toYear}, conferenceRank: ${conferenceRank}, journalRank: ${journalRank}`);
+// ======================================================
+// Calculates pub_count for each link based on the new rules:
+// ======================================================
+function updatePubCount(conferenceRank, journalRank, fromYear, toYear) {
+    console.log("Updating pub_count for links with new rules...");
+    console.log(`conferenceRank: ${conferenceRank}, journalRank: ${journalRank}, fromYear: ${fromYear}, toYear: ${toYear}`);
 
+    // Determine if we have any rank filter
+    const hasConferenceFilter = conferenceRank && conferenceRank.trim() !== "";
+    const hasJournalFilter = journalRank && journalRank.trim() !== "";
+    const userHasRankFilter = hasConferenceFilter || hasJournalFilter;
+
+    // Determine if we have any year filter
     const fromYearNum = fromYear ? parseInt(fromYear, 10) : NaN;
-    const toYearNum   = toYear   ? parseInt(toYear, 10)   : NaN;
+    const toYearNum = toYear ? parseInt(toYear, 10) : NaN;
+    const userHasYearFilter = (!isNaN(fromYearNum) || !isNaN(toYearNum));
 
-    console.log(`Parsed Year Range - fromYearNum: ${fromYearNum}, toYearNum: ${toYearNum}`);
-
-    // True if fromYear and toYear are both empty -> sum all numeric keys (years)
-    const noYearRange = (!fromYear || fromYear.trim() === "") && (!toYear || toYear.trim() === "");
-    console.log(`No Year Range: ${noYearRange}`);
-
-    // True if conferenceRank and journalRank are both empty -> sum all numeric values that are not numeric keys
-    const noRanks = (!conferenceRank || conferenceRank.trim() === "") && (!journalRank || journalRank.trim() === "");
-    console.log(`No Ranks Filter: ${noRanks}`);
-
-
-    function yearInRange(propKey) {
-        // If we are ignoring year range, let everything in
-        if (noYearRange) return true;
-
+    // Helper to check if a property is within the user’s fromYear–toYear range
+    function isWithinYearRange(propKey) {
         const year = parseInt(propKey, 10);
-        if (isNaN(year)) return false; // not a numeric property name
+        if (isNaN(year)) return false; // Not a numeric property
         if (!isNaN(fromYearNum) && year < fromYearNum) return false;
         return !(!isNaN(toYearNum) && year > toYearNum);
     }
 
-    graphData.links.forEach((link, index) => {
-        console.log(`Processing link ${index}:`, link);
+    graphData.links.forEach((link) => {
+        // 1) Calculate total year-based sum (all years, ignoring fromYear/toYear)
+        let yearSumAll = 0;
+        // 2) Calculate year-based sum in the range [fromYear, toYear]
+        let yearSumInRange = 0;
+        // 3) Calculate rank-based sum of the chosen conf/journal ranks
+        let rankSum = 0;
 
-        let sum = 0;
-
-        // 1. If noRanks is true, sum all numeric values for property keys that are NOT numeric keys
-        //    (excluding "source" and "target").
-        //    Otherwise, sum only the selected rank's numeric values (conferenceRank/journalRank) if provided.
-        if (noRanks) {
-            Object.keys(link).forEach((propKey) => {
-                // skip if property key is numeric (year), or source/target
-                if (
-                    propKey === "source" ||
-                    propKey === "target" ||
-                    !isNaN(parseInt(propKey)) // skip numeric property keys
-                ) {
-                    return;
-                }
-                // if the property value is numeric, add it
-                if (typeof link[propKey] === "number") {
-                    console.log(`Adding non-year numeric value from ${propKey}: ${link[propKey]}`);
-                    sum += link[propKey];
-                }
-            });
-        } else {
-            // If conferenceRank is provided, add that property if numeric
-            if (conferenceRank && link.hasOwnProperty(conferenceRank)) {
-                const val = link[conferenceRank];
-                if (typeof val === "number") {
-                    console.log(`Adding conferenceRank value (${conferenceRank}): ${val}`);
-                    sum += val;
-                }
-            }
-            // If journalRank is provided, add that property if numeric
-            if (journalRank && link.hasOwnProperty(journalRank)) {
-                const val = link[journalRank];
-                if (typeof val === "number") {
-                    console.log(`Adding journalRank value (${journalRank}): ${val}`);
-                    sum += val;
-                }
-            }
-        }
-
-        // 2. Handle numeric property keys (which we assume are "year" properties).
-        //    If noYearRange = true, sum them all; otherwise, sum only those in [fromYear, toYear].
+        // -------------------------------------------------
+        // Gather sums
+        // -------------------------------------------------
         Object.keys(link).forEach((propKey) => {
-            // skip known non-year keys
+            // Skip the typical source/target
             if (propKey === "source" || propKey === "target") return;
 
-            // Check if the property key is numeric (e.g. "2020")
-            if (!isNaN(parseInt(propKey, 10)) && yearInRange(propKey)) {
+            // If it's a numeric year property
+            if (!isNaN(parseInt(propKey, 10))) {
                 const val = link[propKey];
                 if (typeof val === "number") {
-                    console.log(`Adding year value (${propKey}): ${val}`);
-                    sum += val;
+                    // Add to the "all years" sum
+                    yearSumAll += val;
+
+                    // If user has year filters, and it's in range,
+                    // also add to yearSumInRange
+                    if (userHasYearFilter && isWithinYearRange(propKey)) {
+                        yearSumInRange += val;
+                    }
+                    // If user has no year filter, yearSumInRange
+                    // is the same as yearSumAll => we'll handle after
+                }
+            }
+            else {
+                // It's a rank-based property (A*, A, B, Q1, Q2, etc.)
+                // Add only if user’s filter matches it
+                if (userHasRankFilter) {
+                    // If user selected a conf rank that matches propKey
+                    if (hasConferenceFilter && propKey === conferenceRank) {
+                        const val = link[propKey];
+                        if (typeof val === "number") rankSum += val;
+                    }
+                    // If user selected a journal rank that matches propKey
+                    if (hasJournalFilter && propKey === journalRank) {
+                        const val = link[propKey];
+                        if (typeof val === "number") rankSum += val;
+                    }
                 }
             }
         });
 
-        // Store the sum in the link
-        console.log(`Final pub_count for link ${index}: ${sum}`);
-        link.pub_count = sum;
+        // If user has no year filter, we consider the entire sum for yearSumInRange
+        if (!userHasYearFilter) {
+            yearSumInRange = yearSumAll;
+        }
+
+        // If user DID NOT select any conf/journal rank,
+        // then rankSum = 0 (we consider none).
+        // Alternatively, if user didn't pick a rank at all,
+        // that sum remains 0 from above logic.
+
+        // -------------------------------------------------
+        // Compute final pub_count based on the rules:
+        // -------------------------------------------------
+        let pubCount;
+
+        // (A) No rank, no year => just sum all years
+        if (!userHasRankFilter && !userHasYearFilter) {
+            pubCount = yearSumAll;
+        }
+        // (B) Rank filter but no year filter
+        else if (userHasRankFilter && !userHasYearFilter) {
+            // pubCount = min( round(rankSum / 1.5), yearSumAll )
+            pubCount = Math.round(rankSum / 1.5);
+            pubCount = Math.min(pubCount, yearSumAll);
+        }
+        // (C) No rank filter, but year filter => use only yearSumInRange
+        else if (!userHasRankFilter && userHasYearFilter) {
+            pubCount = yearSumInRange;
+        }
+        // (D) Rank filter AND year filter => consider everything, then /2
+        else {
+            // pubCount = round( (rankSum + yearSumInRange) / 2 )
+            pubCount = Math.round((rankSum + yearSumInRange) / 2);
+        }
+
+        link.pub_count = pubCount;
     });
 
-    console.log("pub_count updated for links:", graphData.links);
+    console.log("New pub_count updated for links:", graphData.links);
 }
 
+
+// ======================================================
 // Renders the graph using D3.js
-function renderGraph() {
+// ======================================================
+function renderGraph(conferenceRank, journalRank) {
     console.log("Rendering graph...");
     const svg = d3.select("svg");
     svg.selectAll("*").remove();
@@ -188,28 +295,54 @@ function renderGraph() {
     const zoomLayer = svg.append("g");
     console.log("Initialized zoom layer.");
 
+    // ----------------------------------------------------------------------
+    // 1. Determine dynamic link distance
+    // ----------------------------------------------------------------------
+    const totalNodes = graphData.nodes.length;
+    const dynamicLinkDistance = 200 + totalNodes * FORCE_SETTINGS.linkDistanceScale;
+    console.log("Calculated dynamic link distance:", dynamicLinkDistance);
+
+    // ----------------------------------------------------------------------
+    // 2. Create D3 simulation
+    // ----------------------------------------------------------------------
     const simulation = d3
         .forceSimulation(graphData.nodes)
-        .force("link", d3.forceLink(graphData.links).id((d) => d.id)
-            .distance(FORCE_SETTINGS.linkDistance)
-            .strength(FORCE_SETTINGS.linkStrength)
+        .force(
+            "link",
+            d3.forceLink(graphData.links)
+                .id((d) => d.id)
+                .distance(dynamicLinkDistance)
+                .strength(FORCE_SETTINGS.linkStrength)
         )
         .force("charge", d3.forceManyBody().strength(FORCE_SETTINGS.chargeStrength))
         .force("center", d3.forceCenter(GRAPH_DIMENSIONS.width / 2, GRAPH_DIMENSIONS.height / 2))
         .force("collide", d3.forceCollide().radius(FORCE_SETTINGS.collideRadius).strength(FORCE_SETTINGS.collideStrength))
         .alphaDecay(0.05);
 
-    // Enable zoom
-    svg.call(
-        d3.zoom().scaleExtent([0.2, 3]).on("zoom", (event) => {
-            console.log("Zoom event:", event.transform);
+    // ----------------------------------------------------------------------
+    // 3. granular zoom
+    // ----------------------------------------------------------------------
+    zoomBehavior = d3.zoom()
+        .scaleExtent([0.05, 10])
+        .on("zoom", (event) => {
             zoomLayer.attr("transform", event.transform);
-        })
-    );
-    console.log("Configured D3 simulation and zoom.");
+        });
+    svg.call(zoomBehavior);
 
+    // ----------------------------------------------------------------------
+    // 4. Build the link data and link elements
+    // ----------------------------------------------------------------------
     // Only render links with pub_count > 0
-    const linkData = graphData.links.filter((l) => l.pub_count && l.pub_count > 0);
+    let linkData = graphData.links.filter((l) => l.pub_count && l.pub_count > 0);
+
+    // If the user wants to strictly filter out links that do NOT have the specified
+    // conf/journal rank, we can do so here. This is optional depending on your needs.
+    if (conferenceRank && conferenceRank.trim() !== "") {
+        linkData = linkData.filter((l) => typeof l[conferenceRank] === "number" && l[conferenceRank] > 0);
+    }
+    if (journalRank && journalRank.trim() !== "") {
+        linkData = linkData.filter((l) => typeof l[journalRank] === "number" && l[journalRank] > 0);
+    }
 
     const link = zoomLayer
         .append("g")
@@ -217,10 +350,14 @@ function renderGraph() {
         .data(linkData)
         .enter()
         .append("line")
-        .attr("stroke", "#999")
-        .attr("stroke-width", 2);
+        .attr("stroke", () => getLinkColor(link, conferenceRank, journalRank))
+        .attr("stroke-width", (d) => LINK_WIDTH_SCALE(d.pub_count));
+
     console.log("Rendered links:", linkData);
 
+    // ----------------------------------------------------------------------
+    // 5. Build the node data and node elements
+    // ----------------------------------------------------------------------
     const node = zoomLayer
         .append("g")
         .selectAll("g")
@@ -232,11 +369,16 @@ function renderGraph() {
                 .on("start", dragStarted)
                 .on("drag", dragged)
                 .on("end", dragEnded)
-        );
+        )
+        // (3) Add a right-click contextmenu event to show the popup
+        .on("contextmenu", (event, d) => {
+            event.preventDefault();
+            showNodePopup(d, event.pageX, event.pageY);
+        });
 
     console.log("Rendered nodes:", graphData.nodes);
 
-    // For a circular "avatar" style node
+    // Circle mask for avatar
     node.append("clipPath")
         .attr("id", (d) => `clip-${d.id}`)
         .append("circle")
@@ -263,7 +405,9 @@ function renderGraph() {
         .attr("dy", 70)
         .text((d) => d.label);
 
-    // Sync the node and link positions on each simulation tick
+    // ----------------------------------------------------------------------
+    // 6. Attach "tick" handler
+    // ----------------------------------------------------------------------
     simulation.on("tick", () => {
         link
             .attr("x1", (d) => d.source.x)
@@ -273,8 +417,21 @@ function renderGraph() {
 
         node.attr("transform", (d) => `translate(${d.x},${d.y})`);
     });
-    console.log("Simulation tick handler attached.");
 
+    // ----------------------------------------------------------------------
+    // 7. Disable physics once the simulation stabilizes
+    // ----------------------------------------------------------------------
+    setTimeout(() => {
+        console.log(`Stopping simulation after ${FORCE_SETTINGS.simulationMaxRuntime} ms...`);
+        simulation.force("link", null)
+            .force("charge", null)
+            .force("center", null)
+            .force("collide", null);
+    }, FORCE_SETTINGS.simulationMaxRuntime);
+
+    // ----------------------------------------------------------------------
+    // Draggable node events
+    // ----------------------------------------------------------------------
     function dragStarted(event, d) {
         console.log("Drag started for node:", d);
         if (!event.active) simulation.alphaTarget(0.3).restart();
@@ -283,7 +440,7 @@ function renderGraph() {
     }
 
     function dragged(event, d) {
-        console.log("Dragging node:", d);
+        // Fix position to the current mouse coordinates
         d.fx = event.x;
         d.fy = event.y;
     }
@@ -296,7 +453,87 @@ function renderGraph() {
     }
 }
 
+// ======================================================
+// Show Node Popup on right-click
+// ======================================================
+function showNodePopup(nodeData, x, y) {
+    const popup = document.getElementById("node-popup");
+    const popupImage = document.getElementById("popup-image");
+    const popupId = document.getElementById("popup-id");
+    const popupLabel = document.getElementById("popup-label");
+
+    // Populate popup fields
+    popupImage.src = nodeData.image || "";
+    popupId.textContent = nodeData.id;
+    popupLabel.textContent = nodeData.label;
+
+    // Position & display the popup (simple absolute position approach)
+    popup.style.left = x + "px";
+    popup.style.top = y + "px";
+    popup.style.display = "block";
+}
+
+function closeNodePopup() {
+    const popup = document.getElementById("node-popup");
+    popup.style.display = "none";
+}
+
+// ======================================================
+// Add event listeners for + / - buttons
+// ======================================================
+document.getElementById("zoom-in-btn").addEventListener("click", () => {
+    const svg = d3.select("svg");
+    const transform = d3.zoomTransform(svg.node());
+    const newScale = transform.k * FORCE_SETTINGS.zoomStep;
+    svg.transition().duration(300).call(zoomBehavior.scaleTo, newScale);
+});
+
+document.getElementById("zoom-out-btn").addEventListener("click", () => {
+    const svg = d3.select("svg");
+    const transform = d3.zoomTransform(svg.node());
+    const newScale = transform.k / FORCE_SETTINGS.zoomStep;
+    svg.transition().duration(300).call(zoomBehavior.scaleTo, newScale);
+});
+
+// ======================================================
+// Handles Graph API call
+// ======================================================
+function fetchGraphData(selectedNodeId, depth, conferenceRank, journalRank, fromYear, toYear, loadingPopup, timerInterval){
+    fetch("/generate-graph", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            start_author_id: selectedNodeId,
+            depth: depth,
+            conference_rank: conferenceRank,
+            journal_rank: journalRank,
+            from_year: fromYear,
+            to_year: toYear,
+        }),
+    })
+        .then((response) => response.json())
+        .then(({ nodes, links }) => {
+            console.log("API response received:", { nodes, links });
+            mergeGraphData(nodes, links);
+            updatePubCount(conferenceRank, journalRank, fromYear, toYear);
+            updateNodeDropdown(selectedNodeId);
+            renderGraph(conferenceRank, journalRank);
+
+            prev_id = selectedNodeId;
+            prev_depth = depth;
+        })
+        .catch((error) => console.error("Error during graph generation:", error))
+        .finally(() => {
+            if (loadingPopup != null){
+                loadingPopup.style.display = "none";
+                clearInterval(timerInterval); // Stop the timer
+            }
+        });
+}
+
+// ======================================================
 // Handles form submission for graph generation
+// ======================================================
 document.getElementById("graph-form").addEventListener("submit", function (event) {
     event.preventDefault();
     console.log("Form submission intercepted.");
@@ -324,60 +561,47 @@ document.getElementById("graph-form").addEventListener("submit", function (event
     let elapsedTime = 0;
     let timerInterval;
 
-    // Check if prev_id and prev_depth are equal to selectedNodeId and depth
     if (prev_id === selectedNodeId && prev_depth === depth) {
         console.log("Skipping API call as prev_id and prev_depth match selectedNodeId and depth.");
-        updatePubCount(fromYear, toYear, conferenceRank, journalRank);
-        renderGraph();
+        updatePubCount(conferenceRank, journalRank, fromYear, toYear);
+        renderGraph(conferenceRank, journalRank);
     } else {
         console.log("Making API call as prev_id and prev_depth are different.");
 
         // Show the loading popup and start the timer
         loadingPopup.style.display = "block";
-        elapsedTime = 0; // Reset elapsed time
-        loadingTimeSpan.textContent = elapsedTime; // Reset display
+        elapsedTime = 0;
+        loadingTimeSpan.textContent = elapsedTime.toString();
         timerInterval = setInterval(() => {
             elapsedTime++;
-            loadingTimeSpan.textContent = elapsedTime;
+            loadingTimeSpan.textContent = elapsedTime.toString();
         }, 1000);
 
-        fetch("/generate-graph", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                start_author_id: selectedNodeId,
-                depth: depth,
-                conference_rank: conferenceRank,
-                journal_rank: journalRank,
-                from_year: fromYear,
-                to_year: toYear,
-            }),
-        })
-            .then((response) => response.json())
-            .then(({ nodes, links }) => {
-                console.log("API response received:", { nodes, links });
-                mergeGraphData(nodes, links);
-                updatePubCount(fromYear, toYear, conferenceRank, journalRank);
-                updateNodeDropdown();
-                renderGraph();
-
-                // Update prev_id and prev_depth
-                prev_id = selectedNodeId;
-                prev_depth = depth;
-            })
-            .catch((error) => console.error("Error during graph generation:", error))
-            .finally(() => {
-                // Hide the loading popup and stop the timer
-                loadingPopup.style.display = "none";
-                clearInterval(timerInterval); // Stop the timer
-            });
+        fetchGraphData(selectedNodeId, depth, conferenceRank, journalRank, fromYear, toYear, loadingPopup, timerInterval);
     }
 });
 
+// ======================================================
+// Initialize dropdown and basic graph on page load
+// ======================================================
+function initGraph(){
+    const nodeLabelDropdown = document.getElementById("node-label");
 
-// Initialize dropdown on page load
+    if (!nodeLabelDropdown) {
+        console.error("Node label dropdown element not found!");
+    } else {
+        const options = Array.from(nodeLabelDropdown.options);
+
+        options.forEach(option => {
+            fetchGraphData(option.value, 1, "", "", "", "", null, null);
+        });
+    }
+}
+
 console.log("Initializing dropdown on page load...");
 updateNodeDropdown();
+initGraph();
+
 
 
 

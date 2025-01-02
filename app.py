@@ -71,6 +71,7 @@ async def setup_pool():
         db_port = config.get_value("db_port")
         database_url = f"postgresql://{db_user}:{db_password}@{db_url}:{db_port}/{db_name}"
 
+        # Use `await pool.open()` or a context manager
         pool = AsyncConnectionPool(
             conninfo=database_url,
             min_size=1,
@@ -78,6 +79,7 @@ async def setup_pool():
             num_workers=max_active_transactions,
             kwargs={"autocommit": True, "row_factory": dict_row}
         )
+        await pool.open()
         ctx.set_pool(pool)
         logger.info("Async connection pool created successfully.")
     except Exception as e:
@@ -88,12 +90,14 @@ async def setup_pool():
 @app.after_serving
 async def close_pool():
     """
-    Close the async connection pool when the app stops.
+    Close the async connection pool after the server stops.
     """
-    global pool
-    if pool:
-        await pool.close()
-        logger.info("Async connection pool closed successfully.")
+    try:
+        if pool:
+            await pool.close()
+            logger.info("Async connection pool closed successfully.")
+    except Exception as e:
+        logger.error(f"Error while closing the async connection pool: {e}")
 
 
 @app.get('/')
@@ -532,6 +536,12 @@ async def enrich_link_with_publications(
     Fetch extra info about publications for the link between start_id and end_id
     in parallel.
     """
+    if avg_journal_rank not in ["Q1", "Q2", "Q3", "Q4", None]:
+        avg_journal_rank = "Unranked"
+
+    if avg_conf_rank not in ["A*", "A", "B", "C", None]:
+        avg_conf_rank = "Unranked"
+
     link = {
         "source": start_id,
         "target": end_id,
@@ -547,8 +557,12 @@ async def enrich_link_with_publications(
     pub_ranks_result, pub_years_result = await asyncio.gather(pub_ranks_task, pub_years_task)
 
     # Attach rank counts
+    link["Unranked"] = 0
     for rank_assoc in pub_ranks_result:
-        link[str(rank_assoc["rank_name"])] = rank_assoc["rank_total_pubs"]
+        if str(rank_assoc["rank_name"]) not in ['Q1','Q2','Q3','Q4','A*','A','B','C']:
+            link["Unranked"] +=  rank_assoc["rank_total_pubs"]
+        else:
+            link[str(rank_assoc["rank_name"])] = rank_assoc["rank_total_pubs"]
 
     # Attach year counts
     for year_assoc in pub_years_result:

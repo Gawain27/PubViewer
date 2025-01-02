@@ -205,11 +205,7 @@ class QueryBuilder:
         # Build a cache key from the SQL + parameters
         cache_key = (query_string, frozenset(self.parameters.items()))
         if cache_key in self.global_cache:
-            self.logger.debug("Returning cached result for query: %s", query_string)
             return self.global_cache[cache_key]
-
-        self.logger.debug("Executing query:\n%s", query_string)
-        self.logger.debug("Parameters: %s", self.parameters)
 
         # Run the query
         async with self.pool.connection() as conn:
