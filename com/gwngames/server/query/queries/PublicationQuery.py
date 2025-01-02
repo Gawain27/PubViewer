@@ -14,13 +14,13 @@ class PublicationQuery:
         """
         Build a specific query for a publication, aggregating data useful for researchers.
         """
-        publication_query = QueryBuilder(session, Publication, "p")
-        journal_query = QueryBuilder(session, Journal, "j")
-        conference_query = QueryBuilder(session, Conference, "c")
-        google_scholar_query = QueryBuilder(session, GoogleScholarPublication, "gsp")
-        citation_query = QueryBuilder(session, GoogleScholarCitation, "gsc")
-        assoc_query = QueryBuilder(session, PublicationAuthor, "ass")
-        author_query = QueryBuilder(session, Author, "a")
+        publication_query = QueryBuilder(session, Publication.__tablename__, "p")
+        journal_query = QueryBuilder(session, Journal.__tablename__, "j")
+        conference_query = QueryBuilder(session, Conference.__tablename__, "c")
+        google_scholar_query = QueryBuilder(session, GoogleScholarPublication.__tablename__, "gsp")
+        citation_query = QueryBuilder(session, GoogleScholarCitation.__tablename__, "gsc")
+        assoc_query = QueryBuilder(session, PublicationAuthor.__tablename__, "ass")
+        author_query = QueryBuilder(session, Author.__tablename__, "a")
 
         # Joins
         publication_query.join("LEFT", journal_query, "j", on_condition="j.id = p.journal_id")
@@ -79,12 +79,12 @@ class PublicationQuery:
         """
         Build an overview query for publications, including associated journal, conference, and Google Scholar data.
         """
-        publication_query = QueryBuilder(session, Publication, "p")
-        journal_query = QueryBuilder(session, Journal, "j")
-        conference_query = QueryBuilder(session, Conference, "c")
-        google_scholar_query = QueryBuilder(session, GoogleScholarPublication, "gsp")
-        assoc_query = QueryBuilder(session, PublicationAuthor, "ass")
-        author_query = QueryBuilder(session, Author, "a")
+        publication_query = QueryBuilder(session, Publication.__tablename__, "p")
+        journal_query = QueryBuilder(session, Journal.__tablename__, "j")
+        conference_query = QueryBuilder(session, Conference.__tablename__, "c")
+        google_scholar_query = QueryBuilder(session, GoogleScholarPublication.__tablename__, "gsp")
+        assoc_query = QueryBuilder(session, PublicationAuthor.__tablename__, "ass")
+        author_query = QueryBuilder(session, Author.__tablename__, "a")
 
 
         publication_query.join(
@@ -138,16 +138,16 @@ class PublicationQuery:
     @staticmethod
     def build_author_publication_year_query(session, author1_id: int, author2_id: int) -> QueryBuilder:
         # Initialize the QueryBuilder for the Publication table
-        query = QueryBuilder(session, Publication, "p")
+        query = QueryBuilder(session, Publication.__tablename__, "p")
 
         # Join publication_author table for both authors
         query.join(
-            "INNER", PublicationAuthor, "pa1",
+            "INNER", PublicationAuthor.__tablename__, "pa1",
             on_condition="p.id = pa1.publication_id"
         ).and_condition("pa1.author_id", author1_id)
 
         query.join(
-            "INNER", PublicationAuthor, "pa2",
+            "INNER", PublicationAuthor.__tablename__, "pa2",
             on_condition="p.id = pa2.publication_id"
         ).and_condition("pa2.author_id", author2_id)
 
@@ -177,24 +177,24 @@ class PublicationQuery:
     @staticmethod
     def build_author_publication_query(session, author1_id: int, author2_id: int) -> QueryBuilder:
         # Initialize the QueryBuilder for the Publication table
-        query = QueryBuilder(session, Publication, "p")
+        query = QueryBuilder(session, Publication.__tablename__, "p")
 
         # Join publication_author table for both authors
         query.join(
-            "INNER", PublicationAuthor, "pa1",
+            "INNER", PublicationAuthor.__tablename__, "pa1",
             on_condition="p.id = pa1.publication_id"
         ).and_condition("pa1.author_id", author1_id)
 
         query.join(
-            "INNER", PublicationAuthor, "pa2",
+            "INNER", PublicationAuthor.__tablename__, "pa2",
             on_condition="p.id = pa2.publication_id"
         ).and_condition("pa2.author_id", author2_id)
 
         # Join with journal and conference tables
         query.join(
-            "LEFT", Journal, "j", on_condition="p.journal_id = j.id"
+            "LEFT", Journal.__tablename__, "j", on_condition="p.journal_id = j.id"
         ).join(
-            "LEFT", Conference, "c", on_condition="p.conference_id = c.id"
+            "LEFT", Conference.__tablename__, "c", on_condition="p.conference_id = c.id"
         )
 
         query.and_condition(

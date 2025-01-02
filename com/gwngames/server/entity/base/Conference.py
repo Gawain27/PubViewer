@@ -1,4 +1,4 @@
-from sqlalchemy import Date, Column, Integer, ForeignKey, String, Text
+from sqlalchemy import Column, Integer, String, Text
 from sqlalchemy.orm import relationship
 
 from com.gwngames.server.entity.base.BaseEntity import BaseEntity

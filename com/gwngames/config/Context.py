@@ -1,10 +1,9 @@
 import logging
 import os.path
 import threading
+from typing import Optional
 
-from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy.orm import Session, sessionmaker
-
+from psycopg_pool import AsyncConnectionPool
 
 class Context:
     _instance = None
@@ -17,19 +16,19 @@ class Context:
                     cls._instance = super().__new__(cls)
         return cls._instance
 
-    # Add attributes as needed
     def __init__(self):
         if not hasattr(self, 'initialized'):
-            self._drivers = {}
             self.initialized = True
             self.logger = logging.getLogger('Context')
-            self._current_dir = None
+            self._current_dir: Optional[str] = None
             self._config = None
-            self._session_maker = None
-            self._database = None
+
+            # Instead of session_maker, we hold a reference to the psycopg async pool
+            self._pool: Optional[AsyncConnectionPool] = None
 
     def build_path(self, path: str):
-        return os.path.join(self.get_current_dir(), path)
+        with self._lock:
+            return os.path.join(self.get_current_dir(), path)
 
     def get_current_dir(self):
         with self._lock:
@@ -40,42 +39,28 @@ class Context:
             self._current_dir = current_dir
             self.logger.info("Context added: current active directory: " + current_dir)
 
-    def get_config(self):
+    from com.gwngames.utils.JsonReader import JsonReader
+    def get_config(self) -> JsonReader:
         with self._lock:
-            from com.gwngames.utils.JsonReader import JsonReader
-            _dir: JsonReader = self._config
-            return _dir
+            return self._config
 
     def set_config(self, config):
         with self._lock:
             self._config = config
             self.logger.info("Context added: Set current config: " + config.file)
 
-    def set_session_maker(self, session_maker: sessionmaker):
+    def set_pool(self, pool: AsyncConnectionPool):
         """
-        Set the sessionmaker for the context.
-        """
-        if not isinstance(session_maker, sessionmaker):
-            raise ValueError("session_maker must be an instance of sqlalchemy.orm.sessionmaker")
-        self._session_maker = session_maker
-
-    def get_session(self) -> Session:
-        """
-        Return a new SQLAlchemy session.
-
-        :return: A new SQLAlchemy session instance.
+        Assign an async psycopg connection pool to the context.
         """
         with self._lock:
-            if not self._session_maker:
-                raise RuntimeError("Session maker has not been initialized. Call set_session_maker first.")
+            if not isinstance(pool, AsyncConnectionPool):
+                raise ValueError("pool must be an instance of psycopg.AsyncConnectionPool")
+            self._pool = pool
+            self.logger.info("Context: AsyncConnectionPool set.")
 
-            # Create and return a new session
-            return self._session_maker()
-
-    def set_database(self, database: SQLAlchemy):
+    def get_pool(self) -> AsyncConnectionPool:
         with self._lock:
-            self._database = database
-
-    def get_database(self) -> SQLAlchemy:
-        with self._lock:
-            return self._database
+            if not self._pool:
+                raise RuntimeError("Pool has not been initialized. Call set_pool first.")
+            return self._pool

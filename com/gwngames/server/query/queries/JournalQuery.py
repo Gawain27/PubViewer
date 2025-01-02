@@ -5,7 +5,7 @@ from com.gwngames.server.query.QueryBuilder import QueryBuilder
 class JournalQuery:
     @staticmethod
     def getJournals(session):
-        query_builder = QueryBuilder(session, Journal, alias="j")
+        query_builder = QueryBuilder(session, Journal.__tablename__, alias="j")
         query_builder.select("""
             j.id as ID,
             j.title as "Title",

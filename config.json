@@ -1,4 +1,7 @@
 {
+  "max_pool_transactions": 10000,
+  "max_active_transactions": 256,
+  "max_overview_rows": 100,
   "max_generative_depth": 2,
   "db_url": "172.16.0.10",
   "db_port": 5432,

@@ -3,7 +3,7 @@ from com.gwngames.server.entity.base.Conference import Conference
 from com.gwngames.server.entity.base.Interest import Interest
 from com.gwngames.server.entity.base.Journal import Journal
 from com.gwngames.server.entity.base.Publication import Publication
-from com.gwngames.server.entity.base.Relationships import PublicationAuthor, AuthorInterest, AuthorCoauthor
+from com.gwngames.server.entity.base.Relationships import PublicationAuthor, AuthorInterest
 from com.gwngames.server.entity.variant.scholar.GoogleScholarAuthor import GoogleScholarAuthor
 from com.gwngames.server.query.QueryBuilder import QueryBuilder
 
@@ -13,14 +13,14 @@ class AuthorQuery:
     @staticmethod
     def build_author_query_with_filter(session, author_id: int):
         # Base QueryBuilder for Author
-        author_query = QueryBuilder(session, Author, "a")
-        scholar_query = QueryBuilder(session, GoogleScholarAuthor, "g")
-        publication_author_query = QueryBuilder(session, PublicationAuthor, "pa")
-        publication_query = QueryBuilder(session, Publication, "p")
-        journal_query = QueryBuilder(session, Journal, "j")
-        conference_query = QueryBuilder(session, Conference, "c")
-        author_interest_query = QueryBuilder(session, AuthorInterest, "ai")
-        interest_query = QueryBuilder(session, Interest, "i")
+        author_query = QueryBuilder(session, Author.__tablename__, "a")
+        scholar_query = QueryBuilder(session, GoogleScholarAuthor.__tablename__, "g")
+        publication_author_query = QueryBuilder(session, PublicationAuthor.__tablename__, "pa")
+        publication_query = QueryBuilder(session, Publication.__tablename__, "p")
+        journal_query = QueryBuilder(session, Journal.__tablename__, "j")
+        conference_query = QueryBuilder(session, Conference.__tablename__, "c")
+        author_interest_query = QueryBuilder(session, AuthorInterest.__tablename__, "ai")
+        interest_query = QueryBuilder(session, Interest.__tablename__, "i")
 
         # Joins for relations
         author_query.join(
@@ -89,14 +89,14 @@ class AuthorQuery:
     @staticmethod
     def build_author_overview_query(session):
         # Base QueryBuilder for Author
-        author_query = QueryBuilder(session, Author, "a")
-        publication_author_query = QueryBuilder(session, PublicationAuthor, "pa")
-        publication_query = QueryBuilder(session, Publication, "p")
-        journal_query = QueryBuilder(session, Journal, "j")
-        conference_query = QueryBuilder(session, Conference, "c")
-        author_interest_query = QueryBuilder(session, AuthorInterest, "ai")
-        interest_query = QueryBuilder(session, Interest, "i")
-        google_scholar_query = QueryBuilder(session, GoogleScholarAuthor, "gsa")
+        author_query = QueryBuilder(session, Author.__tablename__, "a")
+        publication_author_query = QueryBuilder(session, PublicationAuthor.__tablename__, "pa")
+        publication_query = QueryBuilder(session, Publication.__tablename__, "p")
+        journal_query = QueryBuilder(session, Journal.__tablename__, "j")
+        conference_query = QueryBuilder(session, Conference.__tablename__, "c")
+        author_interest_query = QueryBuilder(session, AuthorInterest.__tablename__, "ai")
+        interest_query = QueryBuilder(session, Interest.__tablename__, "i")
+        google_scholar_query = QueryBuilder(session, GoogleScholarAuthor.__tablename__, "gsa")
 
         # Joins for relations
         author_query.join(
@@ -160,25 +160,25 @@ class AuthorQuery:
 
     @staticmethod
     def build_author_group_query(session, author_id):
-        query_builder = QueryBuilder(session, Publication, "p")
+        query_builder = QueryBuilder(session, Publication.__tablename__, "p")
 
         # Join necessary tables
         query_builder.join(
-            "INNER", PublicationAuthor, "pa_start", on_condition="p.id = pa_start.publication_id"
+            "INNER", PublicationAuthor.__tablename__, "pa_start", on_condition="p.id = pa_start.publication_id"
         ).join(
-            "INNER", Author, "start_author", on_condition="pa_start.author_id = start_author.id"
+            "INNER", Author.__tablename__, "start_author", on_condition="pa_start.author_id = start_author.id"
         ).join(
-            "INNER", GoogleScholarAuthor, "start_gs", on_condition="start_author.id = start_gs.author_key"
+            "INNER", GoogleScholarAuthor.__tablename__, "start_gs", on_condition="start_author.id = start_gs.author_key"
         ).join(
-            "INNER", PublicationAuthor, "pa_end", on_condition="p.id = pa_end.publication_id"
+            "INNER", PublicationAuthor.__tablename__, "pa_end", on_condition="p.id = pa_end.publication_id"
         ).join(
-            "INNER", Author, "end_author", on_condition="pa_end.author_id = end_author.id"
+            "INNER", Author.__tablename__, "end_author", on_condition="pa_end.author_id = end_author.id"
         ).join(
-            "INNER", GoogleScholarAuthor, "end_gs", on_condition="end_author.id = end_gs.author_key"
+            "INNER", GoogleScholarAuthor.__tablename__, "end_gs", on_condition="end_author.id = end_gs.author_key"
         ).join(
-            "LEFT", Conference, "c", on_condition="p.conference_id = c.id"
+            "LEFT", Conference.__tablename__, "c", on_condition="p.conference_id = c.id"
         ).join(
-            "LEFT", Journal, "j", on_condition="p.journal_id = j.id"
+            "LEFT", Journal.__tablename__, "j", on_condition="p.journal_id = j.id"
         )
 
         # Add filters

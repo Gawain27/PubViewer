@@ -4,9 +4,6 @@ import os
 import threading
 from typing import Final, Any
 
-from com.gwngames.config.Context import Context
-
-
 class JsonReader:
     """
     A class for reading and getting values from a json file.
@@ -21,7 +18,6 @@ class JsonReader:
     CONFIG_FILE_NAME: Final = 'config.json'
     MESSAGE_STAT_FILE_NAME: Final = 'message_stats.json'
 
-    ctx = Context()
     _locks = {}  # Class-level dictionary to hold locks for each file
     _directories: dict = {}  # Class-level dictionary to cache directories upon first use
 
@@ -29,10 +25,12 @@ class JsonReader:
         self.logger = logging.getLogger("file_" + file) if parent is None else logging.getLogger(parent + "_" + file)
         self.logger.setLevel(logging.DEBUG)  # Set the logging level to DEBUG
 
+        from com.gwngames.config.Context import Context
+        ctx = Context()
         if directory is None:
-            directory = JsonReader.ctx.get_current_dir()
-        if directory != JsonReader.ctx.get_current_dir():
-            directory = JsonReader.ctx.build_path(directory)
+            directory = ctx.get_current_dir()
+        if directory != ctx.get_current_dir():
+            directory = ctx.build_path(directory)
         self.directory = directory
         self.data: dict = {}
 

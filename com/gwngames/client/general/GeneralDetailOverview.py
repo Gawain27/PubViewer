@@ -1,8 +1,10 @@
-from flask import render_template
+from quart import render_template
+
+from com.gwngames.server.query.QueryBuilder import QueryBuilder
 
 
 class GeneralDetailOverview:
-    def __init__(self, query_builder, title_field, description_field, image_field=None):
+    def __init__(self, query_builder: QueryBuilder, title_field, description_field, image_field=None):
         """
         Initialize the DetailedDataViewer.
 
@@ -28,14 +30,14 @@ class GeneralDetailOverview:
             "column_name": column_name})
 
 
-    def render(self):
+    async def render(self):
         """
         Render the data viewer component with the configured query.
 
         :return: Rendered HTML for the detailed data viewer.
         """
         # Execute the query to fetch data
-        rows = self.query_builder.execute()
+        rows = await self.query_builder.execute()
         if not rows:
             return render_template("generic_detail_overview.html", data=None)
 
@@ -50,7 +52,7 @@ class GeneralDetailOverview:
         # Prepare remaining fields for the table
         details = {k: v for k, v in data.items() if k not in [self.title_field, self.description_field, self.image_field]}
 
-        return render_template(
+        return await render_template(
             "generic_detail_overview.html",
             image_url=image_url,
             title=title,
