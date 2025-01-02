@@ -4,7 +4,7 @@ from com.gwngames.server.query.QueryBuilder import QueryBuilder
 
 class ConferenceQuery:
     @staticmethod
-    def getConferences(session):
+    def get_conferences(session):
         query_builder = QueryBuilder(session, Conference.__tablename__, alias="c")
         query_builder.select("""
     c.id as ID,

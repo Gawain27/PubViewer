@@ -25,6 +25,7 @@ class GeneralDetailOverview:
 
         :param label: The label of the button/link.
         :param endpoint_name: The Flask endpoint to call when the link is clicked.
+        :param column_name: The column name of the button/link that will be used.
         """
         self.row_methods.append({"label": label, "endpoint": endpoint_name,
             "column_name": column_name})

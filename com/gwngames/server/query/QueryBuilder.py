@@ -102,6 +102,11 @@ class QueryBuilder:
         Add a JOIN clause to the query.
 
         :param other: If it's a QueryBuilder, we take its table_name; if it's a string, we assume it's a table name.
+        :param join_type: The type of JOIN clause.
+        :param join_alias: The alias of the JOIN clause.
+        :param on_condition: The condition to apply on the JOIN clause.
+        :param this_field: The field to use for the JOIN clause.
+        :param other_field: The field to use for the JOIN clause, on joined table
         """
         if isinstance(other, QueryBuilder):
             table_name = other.table_name
@@ -209,7 +214,7 @@ class QueryBuilder:
         # Run the query
         async with self.pool.connection() as conn:
             # Convert :param style to %(param)s style
-            converted_query, converted_params = self._convert_params_for_psycopg(query_string, self.parameters)
+            converted_query, converted_params = QueryBuilder._convert_params_for_psycopg(query_string, self.parameters)
 
             # Execute the query
             async with conn.cursor() as cursor:
@@ -223,7 +228,8 @@ class QueryBuilder:
         self.global_cache[cache_key] = result_set
         return result_set
 
-    def _convert_params_for_psycopg(self, query: str, parameters: Dict[str, Any]) -> (str, Dict[str, Any]):
+    @staticmethod
+    def _convert_params_for_psycopg(query: str, parameters: Dict[str, Any]) -> (str, Dict[str, Any]):
         """
         Convert :param style to psycopg3 named parameter style: %(param)s
         E.g., "WHERE name=:p1" -> "WHERE name=%(p1)s"

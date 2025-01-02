@@ -4,15 +4,12 @@ import logging
 import os
 import traceback
 
-# Quart instead of Flask
 from quart import Quart, render_template, jsonify, request
 
 # psycopg3 async usage
 from psycopg_pool import AsyncConnectionPool
 from psycopg.rows import dict_row
 
-# Import your existing classes,
-# but note you will need to adjust them for async usage
 from com.gwngames.client.general.GeneralDetailOverview import GeneralDetailOverview
 from com.gwngames.client.general.GeneralTableOverview import GeneralTableOverview
 from com.gwngames.config.Context import Context
@@ -72,10 +69,10 @@ async def setup_pool():
         db_user = config.get_value("db_user")
         db_password = config.get_value("db_password")
         db_port = config.get_value("db_port")
-        DATABASE_URL = f"postgresql://{db_user}:{db_password}@{db_url}:{db_port}/{db_name}"
+        database_url = f"postgresql://{db_user}:{db_password}@{db_url}:{db_port}/{db_name}"
 
         pool = AsyncConnectionPool(
-            conninfo=DATABASE_URL,
+            conninfo=database_url,
             min_size=1,
             max_size=max_pool_transactions,
             num_workers=max_active_transactions,
@@ -106,18 +103,16 @@ async def start_client():
     """
     try:
         global pool
-        async with pool.connection() as conn:
-            # Fetch some statistics dynamically
-            author_count_query = QueryBuilder(pool, GoogleScholarAuthor.__tablename__, 'g').select('COUNT(*)')
-            publication_count_query = QueryBuilder(pool, GoogleScholarPublication.__tablename__, 'g').select('COUNT(*)')
+        author_count_query = QueryBuilder(pool, GoogleScholarAuthor.__tablename__, 'g').select('COUNT(*)')
+        publication_count_query = QueryBuilder(pool, GoogleScholarPublication.__tablename__, 'g').select('COUNT(*)')
 
-            # Execute the queries and fetch results
-            author_count_result = await author_count_query.execute()
-            publication_count_result = await publication_count_query.execute()
+        # Execute the queries and fetch results
+        author_count_result = await author_count_query.execute()
+        publication_count_result = await publication_count_query.execute()
 
-            # Extract counts
-            author_count = list(author_count_result)[0]["count"]
-            publication_count = list(publication_count_result)[0]["count"]
+        # Extract counts
+        author_count = list(author_count_result)[0]["count"]
+        publication_count = list(publication_count_result)[0]["count"]
 
         # Render the home page with these statistics
         return await render_template(
@@ -271,7 +266,7 @@ async def researcher_detail():
 async def conferences():
     acronym = request.args.get('value', None)
 
-    query_builder: QueryBuilder = ConferenceQuery.getConferences(ctx.get_pool())
+    query_builder: QueryBuilder = ConferenceQuery.get_conferences(ctx.get_pool())
     table_component = GeneralTableOverview(query_builder, "Conferences Overview", limit=ctx.get_config().get_value("max_overview_rows"))
 
     if acronym is not None:
@@ -295,7 +290,7 @@ async def conferences():
 
 @app.get('/journals')
 async def journals():
-    query_builder: QueryBuilder = JournalQuery.getJournals(ctx.get_pool())
+    query_builder: QueryBuilder = JournalQuery.get_journals(ctx.get_pool())
 
     table_component = GeneralTableOverview(query_builder, "Journals Overview", limit=ctx.get_config().get_value("max_overview_rows"))
     table_component.entity_class = query_builder.table_name
@@ -380,13 +375,12 @@ async def generate_graph():
         results = []
 
         # We'll store tasks by depth. At each depth, we query in parallel.
-        async with pool.connection() as conn:
-            # Starting author info (for node info)
-            # In an async world, we can do a single SELECT
-            # Also, since users can generate various networks, caching with this granularity is best
-            sql_author = await QueryBuilder(ctx.get_pool(), Author.__tablename__, 'a').select(
-                'a.name, a.image_url').and_condition('a.id', start_author_id).execute()
-            starting_author = sql_author[0]
+        # Starting author info (for node info)
+        # In an async world, we can do a single SELECT
+        # Also, since users can generate various networks, caching with this granularity is best
+        sql_author = await QueryBuilder(ctx.get_pool(), Author.__tablename__, 'a').select(
+            'a.name, a.image_url').and_condition('a.id', start_author_id).execute()
+        starting_author = sql_author[0]
 
         # Depth-based BFS-like expansions
         while start_depth < max_depth:
@@ -428,75 +422,74 @@ async def generate_graph():
 
         # Now we have edges in 'results'. Next, we must fetch publication info for each edge,
         # also in parallel
-        async with pool.connection() as conn:
-            nodes = {}
-            links = []
+        nodes = {}
+        links = []
 
-            # Ensure the starting node is in the graph
-            nodes[start_author_id] = {
-                "id": start_author_id,
-                "label": starting_author["name"],
-                "image": starting_author["image_url"],
-            }
+        # Ensure the starting node is in the graph
+        nodes[start_author_id] = {
+            "id": start_author_id,
+            "label": starting_author["name"],
+            "image": starting_author["image_url"],
+        }
 
-            # We'll group results by (start_id, end_id) so we can
-            # do parallel calls to fetch publication ranks
-            # at the next step.
-            # results: [ { start_author_id, start_author_label, end_author_id, ...}, ... ]
-            # We want to concurrently fetch publication rank info for each (start, end) pair.
+        # We'll group results by (start_id, end_id) so we can
+        # do parallel calls to fetch publication ranks
+        # at the next step.
+        # results: [ { start_author_id, start_author_label, end_author_id, ...}, ... ]
+        # We want to concurrently fetch publication rank info for each (start, end) pair.
 
-            # 1) Create tasks to fill link details in parallel
-            pub_tasks = []
-            for record in results:
-                pub_tasks.append(
-                    asyncio.create_task(
-                        enrich_link_with_publications(
-                            record["start_author_id"],
-                            record["start_author_label"],
-                            record["start_author_image_url"],
-                            record["end_author_id"],
-                            record["end_author_label"],
-                            record["end_author_image_url"],
-                            record["avg_conference_rank"],
-                            record["avg_journal_rank"]
-                        )
+        # 1) Create tasks to fill link details in parallel
+        pub_tasks = []
+        for record in results:
+            pub_tasks.append(
+                asyncio.create_task(
+                    enrich_link_with_publications(
+                        record["start_author_id"],
+                        record["start_author_label"],
+                        record["start_author_image_url"],
+                        record["end_author_id"],
+                        record["end_author_label"],
+                        record["end_author_image_url"],
+                        record["avg_conference_rank"],
+                        record["avg_journal_rank"]
                     )
                 )
+            )
 
-            # 2) Gather all link info
-            enriched_links = await asyncio.gather(*pub_tasks, return_exceptions=False)
+        # 2) Gather all link info
+        enriched_links = await asyncio.gather(*pub_tasks, return_exceptions=False)
 
-            for link_result in enriched_links:
-                if isinstance(link_result, Exception):
-                    app.logger.error(f"Error in parallel publication fetch: {link_result}")
-                    continue
-                link = link_result["link"]
-                start_id = link["source"]
-                end_id = link["target"]
+        for link_result in enriched_links:
+            if isinstance(link_result, Exception):
+                app.logger.error(f"Error in parallel publication fetch: {link_result}")
+                continue
+            link = link_result["link"]
+            start_id = link["source"]
+            end_id = link["target"]
 
-                # Add start node
-                if start_id not in nodes:
-                    nodes[start_id] = {
-                        "id": start_id,
-                        "label": link_result["start_label"],
-                        "image": link_result["start_image"],
-                    }
-                # Add end node
-                if end_id not in nodes:
-                    nodes[end_id] = {
-                        "id": end_id,
-                        "label": link_result["end_label"],
-                        "image": link_result["end_image"],
-                    }
-                # Add link
-                links.append(link)
+            # Add start node
+            if start_id not in nodes:
+                nodes[start_id] = {
+                    "id": start_id,
+                    "label": link_result["start_label"],
+                    "image": link_result["start_image"],
+                }
+            # Add end node
+            if end_id not in nodes:
+                nodes[end_id] = {
+                    "id": end_id,
+                    "label": link_result["end_label"],
+                    "image": link_result["end_image"],
+                }
+            # Add link
+            links.append(link)
 
-            app.logger.info("Fetched %d nodes ann %d links.", len(nodes), len(links))
+        app.logger.info("Fetched %d nodes ann %d links.", len(nodes), len(links))
 
-            return jsonify({
-                "nodes": list(nodes.values()),
-                "links": links
-            })
+        return jsonify({
+            "nodes": list(nodes.values()),
+            "links": links
+        })
 
     except ValueError as ve:
         app.logger.error("Invalid input: %s", ve)
@@ -518,11 +511,8 @@ async def fetch_author_links(author_id: int) -> list[dict]:
     This replaces synchronous calls like "query.execute()" with an async approach.
     """
     try:
-        async with pool.connection() as conn:
-            # Suppose `author_query` is replaced by direct SQL or your QueryBuilder’s async method
-            # You must adapt as needed:
-            rows = await AuthorQuery.build_author_group_query(pool, author_id).execute()
-            return rows
+        rows = await AuthorQuery.build_author_group_query(pool, author_id).execute()
+        return rows
     except Exception as ex:
         app.logger.error(f"fetch_author_links error for author_id={author_id}: {ex}")
         return []

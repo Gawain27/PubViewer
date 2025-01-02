@@ -22,7 +22,7 @@ class GeneralTableOverview:
         :param image_field: The field in the row data containing the image URL.
         """
         self.query_builder: QueryBuilder = query_builder
-        self.entity_class: str = None
+        self.entity_class: str
         self.alias = None
         self.table_title = table_title
         self.limit = limit
@@ -71,7 +71,7 @@ class GeneralTableOverview:
                 if filter_el["filter_type"] == "string":
                     self.handle_string_filter(filter_el, filter_value)
                 elif filter_el["filter_type"] == "integer":
-                    self.handle_int_filter(filter_el, filter_value)
+                    self.handle_int_filter(filter_el)
 
         if request.args.get("apply_filters"):
             self.query_builder.offset(offset).limit(limit)
@@ -139,7 +139,7 @@ class GeneralTableOverview:
                 is_case_sensitive=is_case_sensitive
             )
 
-    def handle_int_filter(self, filter_element, filter_value):
+    def handle_int_filter(self, filter_element):
         from_value = request.args.get(f"{filter_element['field_name']}_from")
         to_value = request.args.get(f"{filter_element['field_name']}_to")
         logger.debug(f"Handling integer filter for field: {filter_element['field_name']}, from: {from_value}, to: {to_value}")
