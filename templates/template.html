@@ -242,57 +242,107 @@
             }
         }
 
-        /* Position the popup absolutely so you can place it anywhere on the page */
         .node-popup {
-          position: absolute;
-          /* Hidden by default; your showNodePopup() sets display = 'block' */
-          display: none;
-          z-index: 9999; /* Ensure it's on top of other elements */
+            position: fixed;            /* Stay in place */
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            /* Hidden by default; your showNodePopup() sets display = 'block' */
+            display: none;
+            z-index: 9999; /* Ensure it's on top of other elements */
 
-          /* Basic styling */
-          background-color: #fff;
-          border: 1px solid #ccc;
-          border-radius: 6px;
-          padding: 10px;
-          min-width: 200px;
-          box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            background-color: #fff;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            padding: 20px;
+            min-width: 300px;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+            animation: fadeIn 0.3s ease-in-out;
+            overflow: auto; /* Add scroll if the content exceeds the available space */
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
         }
 
         /* Header styles (close button area) */
         .popup-header {
-          display: flex;
-          justify-content: flex-end;
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 10px;
         }
 
         /* Styles for the close 'X' button */
         .close-button {
-          border: none;
-          background: transparent;
-          font-size: 16px;
-          font-weight: bold;
-          cursor: pointer;
-          outline: none;
+            border: none;
+            background: transparent;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            outline: none;
+            color: #333;
         }
 
         .close-button:hover {
-          color: red;
+            color: red;
         }
 
         .popup-content {
-          margin-top: 5px;
+            margin-top: 10px;
         }
 
         #popup-image {
-          max-width: 100px; /* Adjust as needed */
-          max-height: 100px;
-          display: block;
-          margin-bottom: 10px;
+            max-width: 150px; /* Larger image */
+            max-height: 150px;
+            display: block;
+            margin: 0 auto 15px auto;
+            border: 2px solid #ccc;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
         }
+
+        /* Table styles */
+        .popup-table {
+            width: auto; /* Adjust width to content */
+            max-width: 100%; /* Prevent overflow beyond the popup */
+            border-collapse: collapse;
+            margin-top: 10px;
+            font-size: 14px;
+            color: #333;
+        }
+
+        .popup-table th, .popup-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+            white-space: nowrap; /* Prevent text wrapping in cells */
+        }
+
+        .popup-table th {
+            background-color: #f4f4f4;
+            font-weight: bold;
+            color: black; /* Make column headers black */
+        }
+
+        .popup-table tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+
 
     </style>
     <script src="https://d3js.org/d3.v6.min.js"></script>
 </head>
 <body>
+    <script>
+        var master_document = document;
+    </script>
     <!-- Navigation Bar -->
     <nav class="navbar navbar-expand-lg navbar-dark">
         <div class="container-fluid">
@@ -329,31 +379,82 @@
     <div class="container content">
         <div class="content-body">
             {{ content|safe }}
+            {% if popup %}
+                {{ popup|safe }}
+            {% endif %}
             <script src="/static/js/graph.js"></script>
+            <script src="/static/js/overview.js"></script>
         </div>
     </div>
 
-    <!-- Loading Popup -->
-    <div id="loading-popup" style="display: none;">
-        <div class="spinner"></div>
-        <p>Loading... Please wait.</p>
-        <p>Time elapsed: <span id="loading-time">0</span> seconds</p>
-    </div>
-
-    <!-- Node Popup -->
-    <div id="node-popup" class="node-popup">
-      <div class="popup-header">
-        <button class="close-button" onclick="closeNodePopup()">X</button>
-      </div>
-
-      <div class="popup-content">
-        <img id="popup-image" alt="Node Image" />
-        <p>ID: <span id="popup-id"></span></p>
-        <p>Label: <span id="popup-label"></span></p>
-      </div>
-    </div>
-
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Don't move elsewhere or stuff breaks -->
+    <script>
+        /**
+         * Populate #table-body with the given rows
+         */
+        function populateTable(rows) {
+            console.log("Populating table with rows:", rows);
+            const tableBody = document.getElementById('table-body');
+            tableBody.innerHTML = ''; // Clear current rows
+            console.log(rows.length)
+            for (let i = 0; i < rows.length; i++) {
+                const row = rows[i];
+                const tr = document.createElement('tr');
+
+                if (checkbox_enabled) {
+                    let tdCheckbox = document.createElement('td');
+                    tdCheckbox.classList.add('checkbox-column');
+                    const idValue = Array.isArray(row) ? row[0] : Object.values(row)[0];
+                    tdCheckbox.innerHTML = `<input type="checkbox" class="row-checkbox" data-row-id="${idValue}">`;
+                    tr.appendChild(tdCheckbox);
+                }
+
+                if (image_url != null){
+                    let tdImg = document.createElement('td');
+                    if (row[image_url]) {
+                        tdImg.innerHTML = `
+                            <img src="${row[image_url]}"
+                                 alt="Image" onerror="if (this.src !== '/static/resource/avatar.png') this.src='/static/resource/avatar.png';"
+                                 style="width: 50px; height: 50px; object-fit: cover;" />
+                        `;
+                    } else {
+                        tdImg.textContent = 'No Image';
+                    }
+                    tr.appendChild(tdImg);
+                }
+
+                if (row_method_data != null) {
+                    // Actions
+                    let tdActions = document.createElement('td');
+                    for (const endpoint of Object.keys(row_method_data)) {
+                        console.log(row);
+                        if (row_method_data.hasOwnProperty(endpoint)) { // Ensure the property is not inherited
+                            const firstPropertyKey = Object.keys(row)[0];
+                            const firstPropertyValue = row[firstPropertyKey];
+
+                            tdActions.innerHTML +=
+                                `<a href="${endpoint}?value=${firstPropertyValue}" class="btn btn-sm btn-primary me-1">${row_method_data[endpoint]}</a>`;
+                        }
+                    }
+                    tr.appendChild(tdActions);
+                }
+
+
+                for (const column_key of ordering_columns){
+                    if (column_key === image_url)
+                        continue
+
+                    let table_column = document.createElement('td');
+                    table_column.textContent = row[column_key];
+                    tr.appendChild(table_column);
+                }
+
+                tableBody.appendChild(tr);
+            }
+            console.log("Done populating table")
+        }
+    </script>
 </body>
 </html>
 

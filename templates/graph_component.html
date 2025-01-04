@@ -8,14 +8,12 @@
                     (function populateNodeLabels() {
                         const startIds = "{{ start_id }}".split(',');
                         const startLabels = "{{ start_label }}".split(',');
-                        const nodeLabelSelector = document.getElementById('node-label');
+                        const nodeLabelSelector = master_document.getElementById('node-label');
                         for (let i = 0; i < startIds.length; i++) {
-                            const option = document.createElement('option');
+                            const option = master_document.createElement('option');
                             option.value = startIds[i].trim();
                             option.textContent = startLabels[i].trim();
-                            if (i === 0) {
                                 option.setAttribute('selected', 'selected'); // Set the first option as selected
-                            }
                             nodeLabelSelector.appendChild(option);
                         }
                     })();
@@ -64,7 +62,7 @@
             <option value="Q2">Q2</option>
             <option value="Q3">Q3</option>
             <option value="Q4">Q4</option>
-            <option value="Unranked">N/A</option>
+            <option value="Unranked">Unranked</option>
         </select>
     </div>
 
@@ -83,6 +81,8 @@
     </div>
 </form>
 
+<h6 style="color: gray; font-style: italic;">Right click a node to show an Author's details - If graph renders badly, click the "Generate" button again</h6>
+<h6 style="color: gray; font-style: italic;">For large result sets, not all connections are shown - Consider applying filters</h6>
 
 <div id="graph-container" style="margin-top: 20px;">
     <div class="zoom-buttons">
@@ -93,6 +93,9 @@
 </div>
 
 <script>
+    var startIds = "{{ start_id }}".split(',');
+    var startLabels = "{{ start_label }}".split(',');
+
     function filterOptions() {
         const filter = document.getElementById('node-label-filter').value.toLowerCase();
         const options = document.getElementById('node-label').options;
@@ -104,9 +107,9 @@
     }
 
     function sortOptions() {
-        const select = document.getElementById('node-label');
+        const select = master_document.getElementById('node-label');
         const options = Array.from(select.options);
-        options.sort((a, b) => a.text.localeCompare(b.text));
+        options.sort((a, b) => a.textContent.localeCompare(b.textContent));
         select.innerHTML = '';
         options.forEach(option => select.appendChild(option));
     }

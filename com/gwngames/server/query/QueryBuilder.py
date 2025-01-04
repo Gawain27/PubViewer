@@ -1,9 +1,12 @@
 import hashlib
 import logging
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, Tuple
 
 import cachetools
 from psycopg_pool import AsyncConnectionPool
+
+from com.gwngames.config.Context import Context
+
 
 # we must carefully handle concurrency or use an async-safe cache library.
 # but be aware of potential concurrency issues in a high-traffic environment.
@@ -166,6 +169,52 @@ class QueryBuilder:
                   is_case_sensitive: bool = True) -> "QueryBuilder":
         return self.add_having_condition(operator, parameter, value, custom, "OR", is_case_sensitive)
 
+    def add_nested_conditions(
+            self,
+            conditions: List[Tuple[str, str, Any, bool]],
+            operator_between_conditions: str = "OR",
+            condition_type: str = "AND",
+            is_having: bool = False
+    ) -> "QueryBuilder":
+        """
+        Add a nested condition to the query, e.g., AND(cond1 OR cond2 OR cond3 ...).
+
+        :param conditions: A list of conditions, where each condition is a tuple containing:
+                           (parameter, operator, value, custom, is_case_sensitive).
+                           `custom` indicates if the condition is a raw SQL condition.
+        :param operator_between_conditions: The operator between the nested conditions, e.g., OR.
+        :param condition_type: The operator for the overall condition, e.g., AND.
+        :param is_having: Whether the condition is an HAVING condition.
+        """
+        nested_conditions = []
+
+        for parameter, operator, value, custom in conditions:
+
+            param_name = self._next_param_name(parameter)
+            condition = f"{parameter} {operator} :{param_name}" if not custom else value
+
+            nested_conditions.append(condition)
+
+            if not custom:
+                self.parameters[param_name] = value
+
+        nested_clause = f"({f' {operator_between_conditions} '.join(nested_conditions)})"
+
+        # Combine nested clause with the main condition type (e.g., AND)
+        if is_having:
+            if self.having_conditions:
+                self.having_conditions.append(f"{condition_type} {nested_clause}")
+            else:
+                self.having_conditions.append(nested_clause)
+        else:
+            if self.conditions:
+                self.conditions.append(f"{condition_type} {nested_clause}")
+            else:
+                self.conditions.append(nested_clause)
+
+
+        return self
+
     def limit(self, limit: int) -> "QueryBuilder":
         self.limit_value = limit
         return self
@@ -176,6 +225,93 @@ class QueryBuilder:
 
     def select(self, custom_select: str) -> "QueryBuilder":
         self.custom_select = custom_select
+        return self
+
+    def from_subquery(self, subquery: "QueryBuilder", subquery_alias: str) -> "QueryBuilder":
+        """
+        Use another QueryBuilder as a subquery in the FROM clause.
+        """
+        # Build the subquery string.
+        subquery_sql = subquery.build_query_string()
+
+        # Convert subquery parameters to psycopg form
+        subquery_sql_converted, subquery_params = subquery._convert_params_for_psycopg(subquery_sql)
+
+        # Because we need to embed them directly, replace the 'FROM' part with parentheses.
+        # We'll store the fully parenthesized subquery as if it was our table_name.
+        # Example: self.table_name = ( SELECT ... ) -> with the subquery alias appended
+        self.table_name = f"({subquery_sql_converted})"
+        self.alias = subquery_alias
+
+        # Merge subquery parameters into the parent. We can either rename them or assume
+        # subquery param names won't collide. A safer approach is to rename them:
+        new_params = {}
+        for k, v in subquery_params.items():
+            # For instance, prefix the key with the alias or anything you want.
+            # e.g., "sub_{alias}_{param}".
+            new_key = f"{subquery_alias}_{k}"
+            new_params[new_key] = v
+
+        # Now replace the placeholders in the subquery SQL to reference the new prefix:
+        # We must do this carefully: replace "%(oldparam)s" with "%(newparam)s"
+        # so that the parent's final "table_name" contains the correct placeholders.
+
+        temp_sql = self.table_name
+        for old_key, _ in subquery_params.items():
+            old_placeholder = f"%({old_key})s"
+            new_placeholder = f"%({subquery_alias}_{old_key})s"
+            temp_sql = temp_sql.replace(old_placeholder, new_placeholder)
+
+        # Now assign the fixed-up string back to our "table_name".
+        # This is the final parenthesized subquery with updated param placeholders.
+        self.table_name = temp_sql
+
+        # Merge these new parameters into the parent's parameters dict
+        self.parameters.update(new_params)
+
+        return self
+
+    def subquery_condition(
+            self,
+            parameter: str,
+            subquery: "QueryBuilder",
+            operator: str = "IN",
+            condition_type: str = "AND"
+    ) -> "QueryBuilder":
+        """
+        Add a condition using a subquery, e.g.:
+            parameter IN ( SELECT ... )
+        """
+        # 1. Build the subquery SQL
+        subquery_sql = subquery.build_query_string()
+        subquery_sql_converted, subquery_params = subquery._convert_params_for_psycopg(subquery_sql)
+
+        # 2. Rename subquery parameters to avoid collisions
+        #    We'll use a simple prefix "subq_" here, but you can get more fancy if needed.
+        new_params = {}
+        for k, v in subquery_params.items():
+            new_key = f"subq_{k}"
+            new_params[new_key] = v
+
+        # 3. Replace placeholders in the subquery SQL with the new param names
+        temp_sql = subquery_sql_converted
+        for old_key, _ in subquery_params.items():
+            old_placeholder = f"%({old_key})s"
+            new_placeholder = f"%(subq_{old_key})s"
+            temp_sql = temp_sql.replace(old_placeholder, new_placeholder)
+
+        # 4. Construct the condition string, e.g. "parameter IN (<subquery>)"
+        condition_str = f"{parameter} {operator} ({temp_sql})"
+
+        # 5. Add condition to the parent's conditions
+        if self.conditions:
+            self.conditions.append(f"{condition_type} {condition_str}")
+        else:
+            self.conditions.append(condition_str)
+
+        # 6. Merge subquery parameters into parent's parameters
+        self.parameters.update(new_params)
+
         return self
 
     def build_query_string(self) -> str:
@@ -207,35 +343,66 @@ class QueryBuilder:
         if cache_key in self.global_cache:
             return self.global_cache[cache_key]
 
-        # Run the query
         async with self.pool.connection() as conn:
             # Convert :param style to %(param)s style
-            converted_query, converted_params = QueryBuilder._convert_params_for_psycopg(query_string, self.parameters)
+            converted_query, converted_params = self._convert_params_for_psycopg(query_string)
 
-            # Execute the query
             async with conn.cursor() as cursor:
+                logging.info(f"Executing query: {converted_query}")
+                logging.info(f"Params: {converted_params}")
                 await cursor.execute(converted_query, converted_params)
-
-                # Fetch all rows and convert to list of dicts
                 rows = await cursor.fetchall()
 
-        # Cache the result
         result_set = [dict(row) for row in rows]
         self.global_cache[cache_key] = result_set
         return result_set
 
-    @staticmethod
-    def _convert_params_for_psycopg(query: str, parameters: Dict[str, Any]) -> (str, Dict[str, Any]):
+    def clone(self, no_offset = False, no_limit = False) -> "QueryBuilder":
+        """
+        Create a deep copy of the current QueryBuilder instance, creating a new session for it.
+        """
+        from copy import deepcopy
+
+        # Create a new instance without the session
+        cloned_instance = QueryBuilder(
+            pool=Context().get_pool(),  # Derive a new session
+            table_name=self.table_name,
+            alias=self.alias,
+        )
+
+        # Deep copy attributes to ensure no shared state
+        cloned_instance.conditions = deepcopy(self.conditions)
+        cloned_instance.parameters = deepcopy(self.parameters)
+        cloned_instance.order_by_clauses = deepcopy(self.order_by_clauses)
+        cloned_instance.join_clause = self.join_clause  # Strings are immutable, no need to deepcopy
+        cloned_instance.custom_select = self.custom_select
+        cloned_instance.group_by_fields = deepcopy(self.group_by_fields)
+        cloned_instance.having_conditions = deepcopy(self.having_conditions)
+        cloned_instance.param_counter = self.param_counter
+
+        cloned_instance.logger = self.logger
+
+        if no_limit is False:
+            cloned_instance.limit_value = self.limit_value
+        if no_offset is False:
+            cloned_instance.offset_value = self.offset_value
+
+        return cloned_instance
+
+    def _convert_params_for_psycopg(self, query: str) -> (str, Dict[str, Any]):
         """
         Convert :param style to psycopg3 named parameter style: %(param)s
         E.g., "WHERE name=:p1" -> "WHERE name=%(p1)s"
         """
         new_query = query
         new_params = {}
-        for named_param, val in parameters.items():
+        logging.info(f"Parameters: {self.parameters}")
+        for named_param, val in self.parameters.items():
             # Replace :named_param with %(named_param)s
             placeholder = f":{named_param}"
             new_placeholder = f"%({named_param})s"
             new_query = new_query.replace(placeholder, new_placeholder)
             new_params[named_param] = val
+            logging.info(f"Converted {new_query} to {new_params}")
         return new_query, new_params
+

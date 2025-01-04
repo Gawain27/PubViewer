@@ -36,13 +36,13 @@ class PublicationQuery:
         # Select fields and aggregations
         publication_query.select(
             """
-            p.id AS ID,
+            p.id AS "Pub. ID",
             p.title AS "Title",
             p.description AS "Description",
             p.publication_year as Year,
             p.publisher as Publisher,
             p.url AS "Scholar URL",
-            STRING_AGG(DISTINCT lower(SPLIT_PART(a.name, ' ', 2)), ', ') AS Authors,
+            STRING_AGG(DISTINCT a.name, ', ') AS Authors,
             CASE 
                 WHEN COUNT(j.id) > 0 THEN MODE() WITHIN GROUP (
                     ORDER BY COALESCE(NULLIF(REGEXP_REPLACE(j.sjr, '[^0-9.]', ''), ''), '0')

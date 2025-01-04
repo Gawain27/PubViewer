@@ -53,14 +53,12 @@ class Context:
         """
         Assign an async psycopg connection pool to the context.
         """
-        with self._lock:
-            if not isinstance(pool, AsyncConnectionPool):
-                raise ValueError("pool must be an instance of psycopg.AsyncConnectionPool")
-            self._pool = pool
-            self.logger.info("Context: AsyncConnectionPool set.")
+        if not isinstance(pool, AsyncConnectionPool):
+            raise ValueError("pool must be an instance of psycopg.AsyncConnectionPool")
+        self._pool = pool
+        self.logger.info("Context: AsyncConnectionPool set.")
 
     def get_pool(self) -> AsyncConnectionPool:
-        with self._lock:
-            if not self._pool:
-                raise RuntimeError("Pool has not been initialized. Call set_pool first.")
-            return self._pool
+        if not self._pool:
+            raise RuntimeError("Pool has not been initialized. Call set_pool first.")
+        return self._pool

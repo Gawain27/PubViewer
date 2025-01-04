@@ -1,39 +1,64 @@
 import logging
-from typing import Optional
+import uuid
+from typing import Optional, List, Dict
 
 from quart import render_template, request
-
-from com.gwngames.config.Context import Context
+from com.gwngames.client.general.GeneralTableCache import store_query_builder
 from com.gwngames.server.query.QueryBuilder import QueryBuilder
-from com.gwngames.utils.JsonReader import JsonReader
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-
 class GeneralTableOverview:
-    def __init__(self, query_builder, table_title, limit=100, image_field=None):
+    def __init__(
+        self,
+        query_builder: QueryBuilder,
+        table_title: str,
+        limit: int = 100,
+        image_field: Optional[str] = None,
+        enable_checkboxes: bool = False
+    ):
         """
         Initialize the GeneralTableOverview.
 
         :param query_builder: An instance of QueryBuilder configured for the query.
-        :param table_title: Title of the table.
-        :param limit: Number of rows per page.
-        :param image_field: The field in the row data containing the image URL.
+        :param table_title:   Title of the table.
+        :param limit:         Number of rows per page (for server-side).
+        :param image_field:   The field in the row data containing the image URL.
+        :param enable_checkboxes: Whether to display checkboxes in each row.
         """
         self.query_builder: QueryBuilder = query_builder
-        self.entity_class: str
-        self.alias = None
-        self.table_title = table_title
-        self.limit = limit
-        self.image_field = image_field
-        self.filters = []
-        self.row_methods = []
+        self.table_title: str = table_title
+        self.limit: int = limit
+        self.image_field: Optional[str] = image_field
+        self.filters: List[Dict] = []
+        self.row_methods: List[Dict] = []
+        self.page_methods: List[Dict] = []
         self.external_records = []
-        logger.info(f"Initialized GeneralTableOverview for {table_title} with limit {limit}")
+        self.enable_checkboxes = enable_checkboxes
 
-    def add_filter(self, field_name: str, filter_type: str = "string", label: Optional[str] = None,
-                   is_aggregated: bool = False, is_case_sensitive: bool = True):
+        # By default, might come from query_builder, but can be overridden later
+        self.alias: Optional[str] = query_builder.alias
+        self.entity_class: Optional[str] = query_builder.table_name
+
+        # Generate a unique table_id to store/retrieve the QueryBuilder from cache
+        self.table_id: str = str(uuid.uuid4())
+        store_query_builder(self.table_id, self.query_builder)
+
+        logger.info(
+            f"Initialized GeneralTableOverview for '{table_title}' with limit={limit}, "
+            f"checkboxes={enable_checkboxes}, table_id={self.table_id}"
+        )
+
+    def add_filter(
+        self,
+        field_name: str,
+        filter_type: str = "string",
+        label: Optional[str] = None,
+        is_aggregated: bool = False,
+        or_split: bool = False,
+        equal: bool = False,
+    ):
         """
         Add a filter to the table.
         """
@@ -42,23 +67,39 @@ class GeneralTableOverview:
             "filter_type": filter_type,
             "label": label or field_name,
             "is_aggregated": is_aggregated,
-            "is_case_sensitive": is_case_sensitive,
+            "or_split": or_split,
+            "equal": equal,
         })
-        logger.debug(
-            f"Added filter: {field_name}, type: {filter_type}, aggregated: {is_aggregated}, case_sensitive: {is_case_sensitive}")
+        logger.debug(f"Added filter: {field_name}, type: {filter_type}, aggregated={is_aggregated}")
 
-    def add_row_method(self, label, endpoint_name):
+    def add_row_method(self, label: str, endpoint_name: str):
         """
-        Add a method to be triggered by a link in each row.
+        Add an action (button/link) that will appear in every row.
         """
         self.row_methods.append({"label": label, "endpoint": endpoint_name})
         logger.debug(f"Added row method: {label} -> {endpoint_name}")
 
+    def add_page_method(self, label: str, endpoint_name: str):
+        """
+        Add a page-level button that will collect the ID of selected rows
+        (via checkboxes) and pass them (comma-separated) to the given endpoint.
+        """
+        self.page_methods.append({"label": label, "endpoint": endpoint_name})
+        logger.debug(f"Added page method: {label} -> {endpoint_name}")
+
     async def render(self):
-        """Render the table component with filters, buttons, and pagination."""
-        offset = int(request.args.get("offset", 0))
-        limit = self.limit
-        logger.info(f"Rendering table with offset {offset}, limit {limit}")
+        """
+        Render the main HTML (template) that includes filters,
+        checkboxes, pagination controls, etc.
+        Initially, you can decide whether to run an initial query or not.
+        Typically, we just render the skeleton or do a small initial fetch.
+        """
+        logger.info(f"Rendering table overview for '{self.table_title}' (table_id={self.table_id})")
+        # Optionally, we can fetch an initial page to show something by default:
+        # or we can omit it and let the JavaScript fetch from /fetch_data
+        # For demonstration, let's do an initial fetch:
+        init_offset = 0
+        columns = []
 
         # Apply filters to the query builder
         for filter_el in self.filters:
@@ -69,75 +110,84 @@ class GeneralTableOverview:
             if filter_value or is_bypass_rule:
                 logger.debug(f"Applying filter: {filter_el['field_name']} with value {filter_value}")
                 if filter_el["filter_type"] == "string":
-                    self.handle_string_filter(filter_el, filter_value)
+                    self.handle_string_filter(filter_el, filter_value, filter_el.get("or_split"), filter_el.get("equal"))
                 elif filter_el["filter_type"] == "integer":
                     self.handle_int_filter(filter_el)
 
-        if request.args.get("apply_filters"):
-            self.query_builder.offset(offset).limit(limit)
-            rows = await self.query_builder.execute()
-            logger.info(f"Filters applied, fetched {len(rows)} rows")
-        else:
-            rows = self.external_records
-            self.external_records = []
-            logger.info("No filters applied, using external records")
+        # Attempt a minimal initial fetch
+        self.query_builder.offset(init_offset).limit(self.limit)
+        init_rows = await self.query_builder.execute()
+        if init_rows:
+            columns = list(init_rows[0].keys())
 
-        count_query = QueryBuilder(Context().get_pool(), table_name=self.query_builder.table_name,
-                                  alias=self.query_builder.alias)
-        count_query.select(f"COUNT(DISTINCT {self.query_builder.alias}.id) AS count")
-        count_query.conditions = self.query_builder.conditions
+        # We'll just do a rough count here for the initial rendering
+        count_query = self.query_builder.clone(no_limit=True, no_offset=True)
+        count_query.order_by_fields = []
+        count_query = QueryBuilder(count_query.pool, f"({count_query.build_query_string()})", "count")
         count_query.parameters = self.query_builder.parameters
-        count_query.join_clause = self.query_builder.join_clause
-        count_query.param_counter = self.query_builder.param_counter
-        count_query.having_conditions = self.query_builder.having_conditions
-        count_query.group_by_fields = self.query_builder.group_by_fields
-        count_records = await count_query.execute()
-        count_result = sum(record["count"] for record in count_records)
-        logger.info(f"Total records count: {count_result}")
-
-        columns = list(rows[0].keys()) if rows else []
-
-        filter_query_string = "&".join(
-            f"{key}={value}" for key, value in request.args.items() if key not in ["offset", "limit"]
-        )
+        count_query.select("COUNT(*) AS count")
+        count_data = await count_query.execute()
+        total_count = sum(row["count"] for row in count_data)
 
         return await render_template(
             "general_table_overview.html",
+            table_id=self.table_id,
             table_title=self.table_title,
-            rows=rows,
-            columns=columns,
             filters=self.filters,
             row_methods=self.row_methods,
-            offset=offset,
-            limit=limit,
-            total_count=count_result,
-            filter_query_string=filter_query_string,
+            page_methods=self.page_methods,
             image_field=self.image_field,
+            enable_checkboxes=self.enable_checkboxes,
+            initial_rows=init_rows,
+            columns=columns,
+            offset=init_offset,
+            limit=self.limit,
+            total_count=total_count
         )
 
-    def handle_string_filter(self, filter_element, filter_value):
+    def handle_string_filter(self, filter_element, filter_value, or_split, equal):
         """
         Handle string filters, applying them to the query builder.
         """
         field_name = filter_element["field_name"]
-        is_case_sensitive = filter_element["is_case_sensitive"]
         logger.debug(
-            f"Handling string filter for field: {field_name}, value: {filter_value}, case_sensitive: {is_case_sensitive}")
+            f"Handling string filter for field: {field_name}, value: {filter_value}")
 
-        if filter_element.get("is_aggregated", False):  # Check if field is aggregated
-            self.query_builder.having_and(
-                field_name,
-                f"%{filter_value}%",
-                operator="LIKE",
-                is_case_sensitive=is_case_sensitive
+        # Split filter_value by comma, trim whitespace, and iterate over each value
+        filter_values = [value.strip() for value in filter_value.split(',')]
+        is_aggregated = filter_element.get("is_aggregated", False)
+
+        if or_split:
+            or_conditions = []
+            for value in filter_values:
+                if is_aggregated:  # Check if field is aggregated
+                    condition = (field_name, "ILIKE", f"%{value}%" if not equal else f"{value}", False)
+                    or_conditions.append(condition)
+                else:
+                    condition = (f"{self.query_builder.alias}.{field_name}", "ILIKE", f"%{value}%" if not equal else f"{value}", False)
+                    or_conditions.append(condition)
+
+            self.query_builder.add_nested_conditions(
+                conditions=or_conditions,
+                operator_between_conditions="OR",
+                condition_type="AND",
+                is_having=is_aggregated
             )
         else:
-            self.query_builder.and_condition(
-                f"{self.query_builder.alias}.{field_name}",
-                f"%{filter_value}%",
-                operator="LIKE",
-                is_case_sensitive=is_case_sensitive
-            )
+            for value in filter_values:
+                if is_aggregated:  # Check if field is aggregated
+                    self.query_builder.having_and(
+                        field_name,
+                        f"%{value}%" if not equal else f"{value}",
+                        operator="ILIKE"
+                    )
+                else:
+                    self.query_builder.and_condition(
+                        f"{self.query_builder.alias}.{field_name}",
+                        f"%{value}%" if not equal else f"{value}",
+                        operator="ILIKE"
+                    )
+
 
     def handle_int_filter(self, filter_element):
         from_value = request.args.get(f"{filter_element['field_name']}_from")
@@ -156,6 +206,3 @@ class GeneralTableOverview:
                 int(to_value),
                 operator="<="
             )
-        JsonReader(self.query_builder.table_name).set_and_save("query",
-                                                                          self.query_builder.build_query_string())
-        logger.debug(f"Query after applying integer filter: {self.query_builder.build_query_string()}")

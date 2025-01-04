@@ -1,0 +1,30 @@
+<div>
+    <!-- Loading Popup -->
+    <div id="loading-popup" style="display: none;">
+        <div class="spinner"></div>
+        <p>Loading... Please wait.</p>
+        <p>Time elapsed: <span id="loading-time">0</span> seconds</p>
+    </div>
+
+    <!-- Node Popup -->
+    <div id="node-popup" class="node-popup">
+      <div class="popup-header">
+        <button class="close-button" onclick="closeNodePopup()">X</button>
+      </div>
+
+      <div class="popup-content">
+        <img id="popup-image" alt="Node Image" />
+        <table class="popup-table">
+          <thead>
+            <tr>
+              <th>Key</th>
+              <th>Value</th>
+            </tr>
+          </thead>
+          <tbody id="popup-table-body">
+            <!-- Rows dynamically populated -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+</div>

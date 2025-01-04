@@ -11,6 +11,7 @@ from psycopg_pool import AsyncConnectionPool
 from psycopg.rows import dict_row
 
 from com.gwngames.client.general.GeneralDetailOverview import GeneralDetailOverview
+from com.gwngames.client.general.GeneralTableCache import get_query_builder
 from com.gwngames.client.general.GeneralTableOverview import GeneralTableOverview
 from com.gwngames.config.Context import Context
 from com.gwngames.server.entity.base.Author import Author
@@ -51,6 +52,7 @@ app.logger.setLevel(logging.DEBUG)
 
 pool: AsyncConnectionPool
 
+# --------------- REGION STARTUP --------------------
 
 @app.before_serving
 async def setup_pool():
@@ -135,6 +137,7 @@ async def start_client():
             current_year=2024
         )
 
+# -------------------- REGION APPLICATION -------------------------------
 
 @app.get('/about')
 async def about():
@@ -169,22 +172,23 @@ async def publications():
 
     table_component.entity_class = query_builder.table_name
     table_component.alias = query_builder.alias
-    table_component.add_filter("Title", "string", "Title", is_case_sensitive=False)
+    table_component.add_filter("Pub. ID", "string", "Pub. ID (, OR)", or_split=True, equal=True)
+    table_component.add_filter("Title", "string", "Title (, OR)", or_split=True)
     table_component.add_filter(
         "CASE WHEN COUNT(c.rank) > 0 THEN MODE() WITHIN GROUP (ORDER BY c.rank) ELSE '-' END",
-        "string", "Conf. Rank", is_aggregated=True, is_case_sensitive=True
+        "string", "Conf. Rank (, OR)", is_aggregated=True, or_split=True, equal=True
     )
     table_component.add_filter(
         "CASE WHEN COUNT(j.q_rank) > 0 THEN MODE() WITHIN GROUP (ORDER BY j.q_rank) ELSE '-' END",
-        "string", "Journal Rank", is_aggregated=True, is_case_sensitive=False
+        "string", "Journal Rank (, OR)", is_aggregated=True, or_split=True
     )
     table_component.add_filter("publication_year", "integer", "Year")
     table_component.add_filter(
         "STRING_AGG(DISTINCT lower(a.name), ', ')",
         "string",
-        "Author",
+        "Author (, AND)",
         is_aggregated=True,
-        is_case_sensitive=True
+        or_split=False
     )
 
     table_component.add_row_method("View Publication Details", "publication_details")
@@ -198,6 +202,8 @@ async def publications():
 @app.get('/publication_details')
 async def publication_details():
     row_name = request.args.get('id')
+    if row_name is None:
+        row_name = request.args.get('value')
 
     query_builder = PublicationQuery.build_specific_publication_query(ctx.get_pool(), row_name)
 
@@ -220,23 +226,29 @@ async def publication_details():
 async def researchers():
     query_builder: QueryBuilder = AuthorQuery.build_author_overview_query(ctx.get_pool())
 
-    table_component = GeneralTableOverview(query_builder, "Researchers Overview", limit=ctx.get_config().get_value("max_overview_rows"), image_field="Image url")
+    table_component = GeneralTableOverview(query_builder, "Researchers Overview",
+                                           limit=ctx.get_config().get_value("max_overview_rows"),
+                                           image_field="Image url",
+                                           enable_checkboxes=True
+                                           )
     table_component.alias = query_builder.alias
     table_component.entity_class = query_builder.table_name
-    table_component.add_filter("Name", filter_type="string", label="Name", is_case_sensitive=False)
+    table_component.add_filter("Author ID", filter_type="string", label="Author ID (, OR)", or_split=True, equal=True)
+    table_component.add_filter("Name", filter_type="string", label="Name (, OR)", or_split=True)
     table_component.add_filter(
         "COALESCE(STRING_AGG(DISTINCT i.name, ', '), 'N/A')",
-        filter_type="string", label="Interest", is_aggregated=True, is_case_sensitive=False
+        filter_type="string", label="Interest (, AND)", is_aggregated=True, or_split=False
     )
     table_component.add_filter(
         "CASE WHEN COUNT(c.rank) > 0 THEN MODE() WITHIN GROUP (ORDER BY c.rank) ELSE '-' END",
-        filter_type="string", label="Avg. Conf. Rank", is_aggregated=True, is_case_sensitive=True
+        filter_type="string", label="Avg. Conf. Rank (, OR)", is_aggregated=True, or_split=True, equal=True
     )
     table_component.add_filter(
         "CASE WHEN COUNT(j.q_rank) > 0 THEN MODE() WITHIN GROUP (ORDER BY j.q_rank) ELSE '-' END",
-        filter_type="string", label="Avg. Q. Rank", is_aggregated=True, is_case_sensitive=False
+        filter_type="string", label="Avg. Q. Rank (, OR)", is_aggregated=True, or_split=True
     )
     table_component.add_row_method("View Author Details", "researcher_detail")
+    table_component.add_page_method("View Combined Network", "author_network")
 
     return await render_template(
         "template.html",
@@ -247,7 +259,8 @@ async def researchers():
 @app.get('/researcher_detail')
 async def researcher_detail():
     row_name = request.args.get('Author ID')
-
+    if row_name is None:
+        row_name = request.args.get('value')
     query_builder = AuthorQuery.build_author_query_with_filter(ctx.get_pool(), author_id=int(row_name))
 
     data_viewer = GeneralDetailOverview(
@@ -281,10 +294,11 @@ async def conferences():
 
     table_component.entity_class = query_builder.table_name
     table_component.alias = query_builder.alias
-    table_component.add_filter("Title", "string", "Title", is_case_sensitive=False)
-    table_component.add_filter("Acronym", "string", "Acronym", is_case_sensitive=False)
-    table_component.add_filter("Rank", "string", "Rank", is_case_sensitive=True)
-    table_component.add_filter("Publisher", "string", "Publisher", is_case_sensitive=False)
+    table_component.add_filter("ID", filter_type="string", label="ID (, OR)", or_split=True, equal=True)
+    table_component.add_filter("Title", "string", "Title (, OR)", or_split=True)
+    table_component.add_filter("Acronym", "string", "Acronym (, OR)", or_split=True)
+    table_component.add_filter("Rank", "string", "Rank (, OR)", or_split=True, equal=True)
+    table_component.add_filter("Publisher", "string", "Publisher")
 
     return await render_template(
         "template.html",
@@ -299,8 +313,9 @@ async def journals():
     table_component = GeneralTableOverview(query_builder, "Journals Overview", limit=ctx.get_config().get_value("max_overview_rows"))
     table_component.entity_class = query_builder.table_name
     table_component.alias = query_builder.alias
-    table_component.add_filter("title", "string", "Title", is_case_sensitive=False)
-    table_component.add_filter("q_rank", "string", "Rank", is_case_sensitive=True)
+    table_component.add_filter("ID", filter_type="string", label="ID (, OR)", or_split=True, equal=True)
+    table_component.add_filter("title", "string", "Title (, OR)", or_split=True)
+    table_component.add_filter("q_rank", "string", "Rank (, OR)", or_split=True, equal=True)
     table_component.add_filter("Year", "integer", "Year")
 
     return await render_template(
@@ -339,7 +354,8 @@ async def author_network():
                 start_id=start_author_ids,
                 start_label=start_author_labels,
                 max_depth=max_depth
-            )
+            ),
+            popup=await render_template("popup.html")
         )
     except IndexError as e:
         logging.error(f"Error in author_network: {str(e)}")
@@ -348,6 +364,44 @@ async def author_network():
         logging.error(f"Error in author_network: {str(e)}")
         return "Internal Server Error", 500
 
+
+# --------------- REGION API CALLS --------------------
+
+@app.post("/fetch_data")
+async def fetch_data():
+    """
+    We retrieve the same QueryBuilder from the table_id cookie,
+    reapply offset, limit, filters, then return rows in JSON.
+    """
+    table_id = request.args.get("table_id")
+    if not table_id:
+        return jsonify({"error": "No table_id found"}), 400
+
+    qb = get_query_builder(table_id)
+    if not qb:
+        return jsonify({"error": "Invalid or expired table_id"}), 404
+
+    form = await request.form
+    offset = int(form.get("offset", 0))
+    limit = int(form.get("limit", 100))
+
+    qb.offset(offset).limit(limit)
+
+    rows = await qb.execute()
+
+    # Count total rows
+    count_query = qb.clone(no_limit=True, no_offset=True)
+    count_query.select(f"COUNT(*) AS count")
+    count_query.order_by_fields = []
+    count_data = await count_query.execute()
+    total_count = sum(row["count"] for row in count_data)
+
+    return jsonify({
+        "rows": rows,
+        "offset": offset,
+        "limit": limit,
+        "total_count": total_count
+    })
 
 @app.post("/generate-graph")
 async def generate_graph():
@@ -473,17 +527,35 @@ async def generate_graph():
 
             # Add start node
             if start_id not in nodes:
+                author_detail_res = await AuthorQuery.build_author_query_with_filter(pool, start_id).execute()
+                author_detail = author_detail_res[0]
                 nodes[start_id] = {
                     "id": start_id,
                     "label": link_result["start_label"],
                     "image": link_result["start_image"],
+                    "avg_conference_rank": author_detail["Avg. Conf. Rank"],
+                    "avg_journal_rank": author_detail["Avg. Journal Rank"],
+                    "Organization": author_detail["Role"] + " - " + author_detail["Organization"],
+                    "hIndex": author_detail["H Index"],
+                    "i10Index": author_detail["I10 Index"],
+                    "citesTotal": author_detail["Total Cites"],
+                    "pubTotal": author_detail["Publications Found"],
                 }
             # Add end node
             if end_id not in nodes:
+                author_detail_res = await AuthorQuery.build_author_query_with_filter(pool, start_id).execute()
+                author_detail = author_detail_res[0]
                 nodes[end_id] = {
                     "id": end_id,
                     "label": link_result["end_label"],
                     "image": link_result["end_image"],
+                    "avg_conference_rank": author_detail["Avg. Conf. Rank"],
+                    "avg_journal_rank": author_detail["Avg. Journal Rank"],
+                    "Organization": author_detail["Role"] + " - " + author_detail["Organization"],
+                    "hIndex": author_detail["H Index"],
+                    "i10Index": author_detail["I10 Index"],
+                    "citesTotal": author_detail["Total Cites"],
+                    "pubTotal": author_detail["Publications Found"],
                 }
             # Add link
             links.append(link)

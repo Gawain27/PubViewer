@@ -6,7 +6,7 @@
     {% else %}
     <div class="card d-flex flex-row" style="max-width: 600px;">
         {% if image_url %}
-        <img src="{{ image_url }}" class="card-img-left" alt="Image" style="width: 200px; height: auto; object-fit: cover;">
+        <img src="{{ image_url }}" class="card-img-left" alt="Image" onerror="if (this.src !== '/static/resource/avatar.png') this.src='/static/resource/avatar.png';" style="width: 200px; height: auto; object-fit: cover;">
         {% endif %}
         <div class="card-body">
             <h3 class="card-title">{{ title }}</h3>

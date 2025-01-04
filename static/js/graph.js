@@ -8,14 +8,14 @@ const FORCE_SETTINGS = {
     chargeStrength: -300,
     collideRadius: 60,
     collideStrength: 1,
-    linkDistanceScale: 5,
+    linkDistanceScale: 7,
     zoomStep: 1.1,
     simulationMaxRuntime: 5000
 };
 
 const LINK_WIDTH_SCALE = d3.scaleLinear()
     .domain([0, 50])   // domain (up to 50 publications for max thickness)
-    .range([1, 8])    // min thickness 1, max thickness 8
+    .range([1, 12])    // min thickness 1, max thickness 8
     .clamp(true);      // do not exceed the range
 
 // ======================================================
@@ -79,10 +79,10 @@ function getLinkColor(link, selectedConfRank, selectedJournRank) {
             const cColor = getConfColor(link.avg_conf_rank);
             const jColor = getJournColor(link.avg_journal_rank);
             return blendColors(cColor, jColor);
-        } else if (link.avg_conf_rank && link.avg_conf_rank !== ""){
-            return getConfColor(link.avg_conf_rank);
-        } else if (link.avg_journal_rank && link.avg_journal_rank !== ""){
-            return getJournColor(link.avg_journal_rank);
+        } else if (link["avg_conf_rank"] && link["avg_conf_rank"] !== ""){
+            return getConfColor(link["avg_conf_rank"]);
+        } else if (link["avg_journal_rank"] && link["avg_journal_rank"] !== ""){
+            return getJournColor(link["avg_journal_rank"]);
         } else {
             return "#FF0000";
         }
@@ -94,7 +94,7 @@ function getLinkColor(link, selectedConfRank, selectedJournRank) {
 // ======================================================
 function updateNodeDropdown(selectedId) {
     console.log("Updating node dropdown...");
-    const nodeLabelDropdown = document.getElementById("node-label");
+    const nodeLabelDropdown = master_document.getElementById("node-label");
     if (!nodeLabelDropdown) {
         console.error("Node label dropdown element not found!");
         return;
@@ -123,7 +123,7 @@ function updateNodeDropdown(selectedId) {
 
     graphData.nodes.forEach(({ id, label }) => {
         if (!nodeLabelDropdown.querySelector(`option[value="${id}"]`)) {
-            const newOption = document.createElement("option");
+            const newOption = master_document.createElement("option");
             newOption.value = id;
             newOption.textContent = label;
             nodeLabelDropdown.appendChild(newOption);
@@ -263,7 +263,6 @@ function updatePubCount(conferenceRank, journalRank, fromYear, toYear) {
         }
         // (B) Rank filter but no year filter
         else if (userHasRankFilter && !userHasYearFilter) {
-            // pubCount = min( round(rankSum / 1.5), yearSumAll )
             pubCount = Math.round(rankSum / 1.5);
             pubCount = Math.min(pubCount, yearSumAll);
         }
@@ -273,7 +272,6 @@ function updatePubCount(conferenceRank, journalRank, fromYear, toYear) {
         }
         // (D) Rank filter AND year filter => consider everything, then /2
         else {
-            // pubCount = round( (rankSum + yearSumInRange) / 2 )
             pubCount = Math.round((rankSum + yearSumInRange) / 2);
         }
 
@@ -344,13 +342,18 @@ function renderGraph(conferenceRank, journalRank) {
         linkData = linkData.filter((l) => typeof l[journalRank] === "number" && l[journalRank] > 0);
     }
 
+    // By default hide unranked links if no filters are defined and graph size is big
+    if (journalRank === "" && conferenceRank === "" && linkData.length >= 300){
+        linkData = linkData.filter((l) => ["A*","A"].includes(l["avg_conf_rank"]) && ["Q1", "Q2"].includes(l["avg_journal_rank"]));
+    }
+
     const link = zoomLayer
         .append("g")
         .selectAll("line")
         .data(linkData)
         .enter()
         .append("line")
-        .attr("stroke", () => getLinkColor(link, conferenceRank, journalRank))
+        .attr("stroke", (d) => getLinkColor(d, conferenceRank, journalRank))
         .attr("stroke-width", (d) => LINK_WIDTH_SCALE(d.pub_count));
 
     console.log("Rendered links:", linkData);
@@ -396,7 +399,10 @@ function renderGraph(conferenceRank, journalRank) {
         .attr("height", 100)
         .attr("x", -50)
         .attr("y", -50)
-        .attr("clip-path", (d) => `url(#clip-${d.id})`);
+        .attr("clip-path", (d) => `url(#clip-${d.id})`)
+        .on("error", function () {
+            d3.select(this).attr("xlink:href", "/static/resource/avatar.png");
+        });
 
     node.append("text")
         .attr("font-size", "16px")
@@ -406,7 +412,7 @@ function renderGraph(conferenceRank, journalRank) {
         .text((d) => d.label);
 
     // ----------------------------------------------------------------------
-    // 6. Attach "tick" handler
+    // 6. Attach "tick" handler (we simply translate nodes)
     // ----------------------------------------------------------------------
     simulation.on("tick", () => {
         link
@@ -459,18 +465,57 @@ function renderGraph(conferenceRank, journalRank) {
 function showNodePopup(nodeData, x, y) {
     const popup = document.getElementById("node-popup");
     const popupImage = document.getElementById("popup-image");
-    const popupId = document.getElementById("popup-id");
-    const popupLabel = document.getElementById("popup-label");
 
-    // Populate popup fields
     popupImage.src = nodeData.image || "";
-    popupId.textContent = nodeData.id;
-    popupLabel.textContent = nodeData.label;
 
-    // Position & display the popup (simple absolute position approach)
-    popup.style.left = x + "px";
-    popup.style.top = y + "px";
+    const tableBody = document.getElementById('popup-table-body');
+    tableBody.innerHTML = '';
+
+    addPopupRow(tableBody, "Author ID", nodeData.id)
+    addPopupRow(tableBody, "Name", nodeData.label)
+    addPopupRow(tableBody, "Organization", nodeData["Organization"])
+    addPopupRow(tableBody, "H-Index", nodeData["hIndex"])
+    addPopupRow(tableBody, "I-10 Index", nodeData["i10Index"])
+    addPopupRow(tableBody, "Cited by", nodeData["citesTotal"])
+    addPopupRow(tableBody, "Publications Found", nodeData["pubTotal"])
+    addPopupRow(tableBody, "Avg. Conference Rank", nodeData["avg_conference_rank"])
+    addPopupRow(tableBody, "Avg. Journal Rank", nodeData["avg_journal_rank"])
+
     popup.style.display = "block";
+    resizePopup(popup, true);
+}
+
+// Function to adjust the popup and table size dynamically
+function resizePopup(popup, recall) {
+    const popupTable = popup.querySelector('.popup-table');
+
+    if (popupTable) {
+        // Force layout recalculation
+        popupTable.style.width = 'auto'; // Reset to auto to fit contents
+        const computedWidth = popupTable.offsetWidth; // Get natural size
+        popupTable.style.width = `${computedWidth}px`; // Apply computed size
+    }
+
+    popup.style.width = 'auto'; // Reset to auto to fit contents
+    const computedPopupWidth = popup.offsetWidth;
+    popup.style.width = `${computedPopupWidth}px`;
+    if (recall){
+        resizePopup(popup, false);
+    }
+}
+
+// Function to populate the popup table with data
+function addPopupRow(tableBody, key, value) {
+    const row = document.createElement('tr');
+
+    const propertyCell = document.createElement('td');
+    propertyCell.textContent = key;
+    const valueCell = document.createElement('td');
+    valueCell.textContent = value;
+
+    row.appendChild(propertyCell);
+    row.appendChild(valueCell);
+    tableBody.appendChild(row);
 }
 
 function closeNodePopup() {
@@ -498,7 +543,7 @@ document.getElementById("zoom-out-btn").addEventListener("click", () => {
 // ======================================================
 // Handles Graph API call
 // ======================================================
-function fetchGraphData(selectedNodeId, depth, conferenceRank, journalRank, fromYear, toYear, loadingPopup, timerInterval){
+function fetchGraphData(selectedNodeId, depth, conferenceRank, journalRank, fromYear, toYear, loadingPopup, timerInterval, render = true){
     fetch("/generate-graph", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -517,7 +562,9 @@ function fetchGraphData(selectedNodeId, depth, conferenceRank, journalRank, from
             mergeGraphData(nodes, links);
             updatePubCount(conferenceRank, journalRank, fromYear, toYear);
             updateNodeDropdown(selectedNodeId);
-            renderGraph(conferenceRank, journalRank);
+            if (render === true) {
+                renderGraph(conferenceRank, journalRank);
+            }
 
             prev_id = selectedNodeId;
             prev_depth = depth;
@@ -584,23 +631,70 @@ document.getElementById("graph-form").addEventListener("submit", function (event
 // ======================================================
 // Initialize dropdown and basic graph on page load
 // ======================================================
-function initGraph(){
-    const nodeLabelDropdown = document.getElementById("node-label");
+async function initGraph() {
+    const nodeLabelDropdown = master_document.getElementById("node-label");
+    const loadingPopup = document.getElementById("loading-popup");
+    const loadingTimeSpan = document.getElementById("loading-time");
+
+    console.log("body: " + master_document.body.innerHTML);
+    let elapsedTime = 0;
+    let timerInterval;
 
     if (!nodeLabelDropdown) {
         console.error("Node label dropdown element not found!");
     } else {
-        const options = Array.from(nodeLabelDropdown.options);
+        console.log("Initializing graph for all options in dropdown...");
 
-        options.forEach(option => {
-            fetchGraphData(option.value, 1, "", "", "", "", null, null);
-        });
+        // Show the loading popup and start the timer
+        loadingPopup.style.display = "block";
+        elapsedTime = 0;
+        loadingTimeSpan.textContent = elapsedTime.toString();
+        timerInterval = setInterval(() => {
+            elapsedTime++;
+            loadingTimeSpan.textContent = elapsedTime.toString();
+        }, 1000);
+
+        const options = Array.from(nodeLabelDropdown.options);
+        var last_exec = null;
+        const promises = options.map(option => {
+                fetchGraphData(option.value, 1, "", "", "", "", null, null, false);
+                last_exec = option.value;
+            }
+        );
+
+        try {
+            await Promise.all(promises);
+            console.log("Graph initialization complete for all options.");
+        } catch (error) {
+            console.error("Error during graph initialization:", error);
+        } finally {
+            // Hide the loading popup and clear the timer
+            clearInterval(timerInterval);
+            loadingPopup.style.display = "none";
+            fetchGraphData(last_exec, 1, null, null, null, null, null, null)
+        }
     }
 }
 
-console.log("Initializing dropdown on page load...");
-updateNodeDropdown();
-initGraph();
+window.addEventListener("load", function () {
+    console.log("Initializing dropdown on page load...");
+
+    const nodeLabelDropdown = master_document.getElementById('node-label');
+    for (let i = 0; i < startIds.length; i++){
+        if (!nodeLabelDropdown.querySelector(`option[value="${startIds[i]}"]`)) {
+            const newOption = master_document.createElement("option");
+            newOption.value = startIds[i];
+            newOption.textContent = startLabels[i];
+            nodeLabelDropdown.appendChild(newOption);
+            console.log("added: " + startLabels[i])
+        }
+    }
+    (async () => {
+        await initGraph();
+        console.log("Graph initialization script has finished.");
+    })();
+});
+
 
 
 

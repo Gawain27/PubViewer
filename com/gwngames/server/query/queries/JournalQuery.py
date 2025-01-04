@@ -7,7 +7,7 @@ class JournalQuery:
     def get_journals(session):
         query_builder = QueryBuilder(session, Journal.__tablename__, alias="j")
         query_builder.select("""
-            j.id as ID,
+            j.id as "ID",
             j.title as "Title",
             j.link as "Link",
             j.year as "Year",
