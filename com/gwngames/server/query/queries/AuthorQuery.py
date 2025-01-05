@@ -138,7 +138,7 @@ class AuthorQuery:
         # Select required fields and aggregations with significant aliases
         author_query.select(
             """
-            a.id AS "Author ID",
+            DISTINCT a.id AS "Author ID",
             a.name AS Name,
             a.role AS Role,
             a.organization AS Organization,
@@ -177,63 +177,39 @@ class AuthorQuery:
 
         return author_query
 
-
     @staticmethod
-    def build_author_group_query(session, author_id):
-        query_builder = QueryBuilder(session, Publication.__tablename__, "p")
+    def build_author_group_query_batch(session, author_ids):
+        author_ids = ",".join(map(str, author_ids))
 
-        # Join necessary tables
-        query_builder.join(
-            "INNER", PublicationAuthor.__tablename__, "pa_start", on_condition="p.id = pa_start.publication_id"
+        qb = QueryBuilder(session, Publication.__tablename__, "p")
+        qb.join(
+            "INNER", PublicationAuthor.__tablename__, "pa_start", "p.id = pa_start.publication_id"
         ).join(
-            "INNER", Author.__tablename__, "start_author", on_condition="pa_start.author_id = start_author.id"
+            "INNER", Author.__tablename__, "start_author", "pa_start.author_id = start_author.id"
         ).join(
-            "INNER", GoogleScholarAuthor.__tablename__, "start_gs", on_condition="start_author.id = start_gs.author_key"
+            "INNER", GoogleScholarAuthor.__tablename__, "start_gs", "start_author.id = start_gs.author_key"
         ).join(
-            "INNER", PublicationAuthor.__tablename__, "pa_end", on_condition="p.id = pa_end.publication_id"
+            "INNER", PublicationAuthor.__tablename__, "pa_end", "p.id = pa_end.publication_id"
         ).join(
-            "INNER", Author.__tablename__, "end_author", on_condition="pa_end.author_id = end_author.id"
+            "INNER", Author.__tablename__, "end_author", "pa_end.author_id = end_author.id"
         ).join(
-            "INNER", GoogleScholarAuthor.__tablename__, "end_gs", on_condition="end_author.id = end_gs.author_key"
-        ).join(
-            "LEFT", Conference.__tablename__, "c", on_condition="p.conference_id = c.id"
-        ).join(
-            "LEFT", Journal.__tablename__, "j", on_condition="p.journal_id = j.id"
+            "INNER", GoogleScholarAuthor.__tablename__, "end_gs", "end_author.id = end_gs.author_key"
         )
-
-        # Add filters
-        query_builder.and_condition("start_author.id", author_id)
-        query_builder.and_condition("", "(j.q_rank IS NOT NULL or c.rank IS NOT NULL)", custom=True)
-
-        # Add SELECT clause
-        query_builder.select(
+        qb.and_condition("", f"start_author.id IN ({author_ids})", custom=True)
+        qb.select(
             """
             start_author.id AS start_author_id,
             start_author.name AS start_author_label,
             start_author.image_url AS start_author_image_url,
-            CONCAT(start_author.role, ' ', start_author.organization) AS start_author_info,
             end_author.id AS end_author_id,
             end_author.name AS end_author_label,
-            end_author.image_url AS end_author_image_url,
-            CONCAT(end_author.role, ' ', end_author.organization) AS end_author_info,
-            COUNT(p.id) AS author_total_pubs,
-            MODE() WITHIN GROUP (ORDER BY c.rank) AS avg_conference_rank,
-            MODE() WITHIN GROUP (ORDER BY j.q_rank) AS avg_journal_rank
+            end_author.image_url AS end_author_image_url
             """
         )
-
-        # Group by necessary columns
-        query_builder.group_by(
-            "start_author.id",
-            "start_author.name",
-            "start_author.image_url",
-            "CONCAT(start_author.role, ' ', start_author.organization)",
-            "end_author.id",
-            "end_author.name",
-            "end_author.image_url",
-            "CONCAT(end_author.role, ' ', end_author.organization)"
+        qb.group_by(
+            "start_author.id", "start_author.name", "start_author.image_url",
+            "end_author.id", "end_author.name", "end_author.image_url"
         )
-
-        return query_builder
+        return qb
 
 

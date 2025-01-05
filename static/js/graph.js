@@ -471,18 +471,51 @@ function showNodePopup(nodeData, x, y) {
     const tableBody = document.getElementById('popup-table-body');
     tableBody.innerHTML = '';
 
-    addPopupRow(tableBody, "Author ID", nodeData.id)
-    addPopupRow(tableBody, "Name", nodeData.label)
-    addPopupRow(tableBody, "Organization", nodeData["Organization"])
-    addPopupRow(tableBody, "H-Index", nodeData["hIndex"])
-    addPopupRow(tableBody, "I-10 Index", nodeData["i10Index"])
-    addPopupRow(tableBody, "Cited by", nodeData["citesTotal"])
-    addPopupRow(tableBody, "Publications Found", nodeData["pubTotal"])
-    addPopupRow(tableBody, "Avg. Conference Rank", nodeData["avg_conference_rank"])
-    addPopupRow(tableBody, "Avg. Journal Rank", nodeData["avg_journal_rank"])
+    const loadingPopup = document.getElementById("loading-popup");
+    const loadingTimeSpan = document.getElementById("loading-time");
 
-    popup.style.display = "block";
-    resizePopup(popup, true);
+    let elapsedTime = 0;
+    let timerInterval;
+
+    loadingPopup.style.display = "block";
+    elapsedTime = 0;
+    loadingTimeSpan.textContent = elapsedTime.toString();
+    timerInterval = setInterval(() => {
+        elapsedTime++;
+        loadingTimeSpan.textContent = elapsedTime.toString();
+    }, 1000);
+
+
+    fetch("/fetch-author-detail", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            author_id: nodeData.id
+        }),
+    })
+        .then((response) => response.json())
+        .then(({author_data}) => {
+            addPopupRow(tableBody, "Author ID", nodeData.id)
+            addPopupRow(tableBody, "Name", nodeData.label)
+            addPopupRow(tableBody, "Organization", author_data["Organization"])
+            addPopupRow(tableBody, "H-Index", author_data["hIndex"])
+            addPopupRow(tableBody, "I-10 Index", author_data["i10Index"])
+            addPopupRow(tableBody, "Cited by", author_data["citesTotal"])
+            addPopupRow(tableBody, "Publications Found", author_data["pubTotal"])
+            addPopupRow(tableBody, "Avg. Conference Rank", author_data["avg_conference_rank"])
+            addPopupRow(tableBody, "Avg. Journal Rank", author_data["avg_journal_rank"])
+
+            console.log("details for: " + nodeData.label + " - " + author_data)
+            popup.style.display = "block";
+            resizePopup(popup, true);
+        })
+        .catch((error) => console.error("Error during graph generation:", error))
+        .finally(() => {
+            if (loadingPopup != null){
+                loadingPopup.style.display = "none";
+                clearInterval(timerInterval); // Stop the timer
+            }
+        });
 }
 
 // Function to adjust the popup and table size dynamically

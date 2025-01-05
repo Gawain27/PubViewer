@@ -1,8 +1,10 @@
 import asyncio
 import copy
 import logging
+import math
 import os
 import traceback
+from collections import defaultdict
 
 from quart import Quart, render_template, jsonify, request
 
@@ -245,7 +247,7 @@ async def researchers():
     )
     table_component.add_filter(
         "CASE WHEN COUNT(j.q_rank) > 0 THEN MODE() WITHIN GROUP (ORDER BY j.q_rank) ELSE '-' END",
-        filter_type="string", label="Avg. Q. Rank (, OR)", is_aggregated=True, or_split=True
+        filter_type="string", label="Avg. Jour. Rank (, OR)", is_aggregated=True, or_split=True
     )
     table_component.add_row_method("View Author Details", "researcher_detail")
     table_component.add_page_method("View Combined Network", "author_network")
@@ -367,6 +369,34 @@ async def author_network():
 
 # --------------- REGION API CALLS --------------------
 
+@app.post("/fetch-author-detail")
+async def fetch_author_detail():
+    data = await request.get_json()
+    author_id = data.get("author_id", None)
+    if not author_id:
+        return jsonify({"error": "Error: Author ID is required"})
+
+    qb = AuthorQuery.build_author_query_with_filter(pool, int(author_id))
+    author = await qb.execute()
+    author = author[0] if author else None
+    if not author:
+        return jsonify({"error": "Error: Author ID is not found"})
+
+    app.logger.info("Fetched author detail: %s", author)
+
+    org = f"{author["Role"]} - {author["Organization"]}" if author["Role"] != "?" else author["Organization"]
+    return jsonify( {"author_data":
+        {
+            "Organization": f"{org}",
+            "hIndex": author["H Index"],
+            "i10Index": author["I10 Index"],
+            "citesTotal": author["Total Cites"],
+            "pubTotal": author["Publications Found"],
+            "avg_conference_rank": author["Avg. Conf. Rank"],
+            "avg_journal_rank": author["Avg. Journal Rank"]
+        }}
+    )
+
 @app.post("/fetch_data")
 async def fetch_data():
     """
@@ -403,86 +433,74 @@ async def fetch_data():
         "total_count": total_count
     })
 
+
 @app.post("/generate-graph")
 async def generate_graph():
-    """
-    Generates a tree-structured author graph starting from a given author ID.
-    This version uses async queries with psycopg3 and parallelizes queries
-    both at each depth level and for each record in the for-loop.
-    """
     try:
         data = await request.get_json()
-        app.logger.debug("Received JSON payload: %s", data)
+        start_author_id = int(data["start_author_id"])
+        max_depth = int(data["depth"])
+        max_tuple_per_query = int(conf_reader.get_value("max_tuple_per_query"))
 
-        start_author_id = data.get("start_author_id")
-        if not start_author_id:
-            return jsonify({"error": "start_author_id is required"}), 400
-
-        max_depth = data.get("depth")
-        if not max_depth:
-            return jsonify({"error": "depth is required"}), 400
-
-        # Convert inputs to integers
-        start_author_id = int(start_author_id)
-        max_depth = int(max_depth)
-
+        # BFS variables
         start_depth = 0
         authors_seen = set()
         authors_to_query = [start_author_id]
+        edges = []
+        nodes = {}
 
-        results = []
+        # 0 - Starting author info (in case of no results)
 
-        # We'll store tasks by depth. At each depth, we query in parallel.
-        # Starting author info (for node info)
-        # In an async world, we can do a single SELECT
-        # Also, since users can generate various networks, caching with this granularity is best
         sql_author = await QueryBuilder(ctx.get_pool(), Author.__tablename__, 'a').select(
             'a.name, a.image_url').and_condition('a.id', start_author_id).execute()
         starting_author = sql_author[0]
 
-        # Depth-based BFS-like expansions
+        # ---------------------------
+        # 1) BFS expansion in N sub-batches
+        # ---------------------------
         while start_depth < max_depth:
-            app.logger.info(f"Depth {start_depth} - authors to query: {authors_to_query}")
-
-            current_authors_to_query = copy.deepcopy(authors_to_query)
+            current_authors = list(set(authors_to_query) - authors_seen)
             authors_to_query.clear()
+            if not current_authors:
+                break
 
-            # 1) For each author at this depth, run the query in parallel (asyncio.gather)
+            authors_seen.update(current_authors)
+
+            # Divide authors into up to 8 chunks, fetch in parallel
+            results_this_depth = []
+            chunk_size = math.ceil(len(current_authors) / max_tuple_per_query)
             tasks = []
-            for author_id in current_authors_to_query:
-                if author_id in authors_seen:
-                    continue
-                authors_seen.add(author_id)
+            for i in range(0, len(current_authors), chunk_size):
+                chunk = current_authors[i : i + chunk_size]
+                tasks.append(asyncio.create_task(fetch_author_links_batch(chunk)))
+            sub_results_list = await asyncio.gather(*tasks)
 
-                # Build a task to fetch the network for that author (e.g. co-authors).
-                tasks.append(asyncio.create_task(fetch_author_links(author_id)))
+            # Combine sub-results
+            for sub_results in sub_results_list:
+                results_this_depth.extend(sub_results)
 
-            # 2) Wait for all tasks at this depth to finish
-            #    and gather their partial results
-            partial_results_list = await asyncio.gather(*tasks, return_exceptions=False)
+            # Process BFS expansions
+            for row in results_this_depth:
+                s_id = row["start_author_id"]
+                e_id = row["end_author_id"]
+                edges.append(
+                    (
+                        s_id,
+                        row["start_author_label"],
+                        row["start_author_image_url"],
+                        e_id,
+                        row["end_author_label"],
+                        row["end_author_image_url"]
+                    )
+                )
+                if e_id not in authors_seen:
+                    authors_to_query.append(e_id)
 
-            # 3) Process each partial result: collect co-author edges, schedule next depth
-            for partial_result in partial_results_list:
-                if isinstance(partial_result, Exception):
-                    # Log or handle errors from a single task
-                    app.logger.error(f"Error in parallel fetch: {partial_result}")
-                    continue
-                for record in partial_result:
-                    end_author_id = int(record["end_author_id"])
-                    if end_author_id not in authors_seen:
-                        authors_to_query.append(end_author_id)
-                    results.append(record)
-
-            app.logger.info(
-                f"Depth {start_depth} - Found {len(authors_to_query)} authors for next depth."
-            )
             start_depth += 1
 
-        # Now we have edges in 'results'. Next, we must fetch publication info for each edge,
-        # also in parallel
-        nodes = {}
-        links = []
-
+        # ---------------------------
+        # 2) Minimal node info
+        # ---------------------------
         # Ensure the starting node is in the graph
         nodes[start_author_id] = {
             "id": start_author_id,
@@ -490,96 +508,140 @@ async def generate_graph():
             "image": starting_author["image_url"],
         }
 
-        # We'll group results by (start_id, end_id) so we can
-        # do parallel calls to fetch publication ranks
-        # at the next step.
-        # results: [ { start_author_id, start_author_label, end_author_id, ...}, ... ]
-        # We want to concurrently fetch publication rank info for each (start, end) pair.
+        # Build edges, if any
+        for (s_id, s_label, s_img, e_id, e_label, e_img) in edges:
+            if s_id not in nodes:
+                nodes[s_id] = {"id": s_id, "label": s_label, "image": s_img or ""}
+            if e_id not in nodes:
+                nodes[e_id] = {"id": e_id, "label": e_label, "image": e_img or ""}
 
-        # 1) Create tasks to fill link details in parallel
-        pub_tasks = []
-        for record in results:
-            pub_tasks.append(
-                asyncio.create_task(
-                    enrich_link_with_publications(
-                        record["start_author_id"],
-                        record["start_author_label"],
-                        record["start_author_image_url"],
-                        record["end_author_id"],
-                        record["end_author_label"],
-                        record["end_author_image_url"],
-                        record["avg_conference_rank"],
-                        record["avg_journal_rank"]
-                    )
-                )
-            )
+        # ---------------------------
+        # 3) Fetch publication info (ranks, years) in N cores sub-batches
+        # ---------------------------
+        unique_pairs = set()
+        for (s_id, _, _, e_id, _, _) in edges:
+            pair = tuple(sorted((s_id, e_id)))
+            unique_pairs.add(pair)
 
-        # 2) Gather all link info
-        enriched_links = await asyncio.gather(*pub_tasks, return_exceptions=False)
+        pair_to_ranks_freq = {}
+        pair_to_years_freq = {}
+        pairs_list = list(unique_pairs)
 
-        for link_result in enriched_links:
-            if isinstance(link_result, Exception):
-                app.logger.error(f"Error in parallel publication fetch: {link_result}")
-                continue
-            link = link_result["link"]
-            start_id = link["source"]
-            end_id = link["target"]
+        if pairs_list:
+            chunk_size = math.ceil(len(pairs_list) / max_tuple_per_query)
+            tasks = []
+            for i in range(0, len(pairs_list), chunk_size):
+                sub_batch = pairs_list[i : i + chunk_size]
+                tasks.append(asyncio.create_task(fetch_pub_info_subbatch(sub_batch)))
+            results = await asyncio.gather(*tasks)
 
-            # Add start node
-            if start_id not in nodes:
-                author_detail_res = await AuthorQuery.build_author_query_with_filter(pool, start_id).execute()
-                author_detail = author_detail_res[0]
-                nodes[start_id] = {
-                    "id": start_id,
-                    "label": link_result["start_label"],
-                    "image": link_result["start_image"],
-                    "avg_conference_rank": author_detail["Avg. Conf. Rank"],
-                    "avg_journal_rank": author_detail["Avg. Journal Rank"],
-                    "Organization": author_detail["Role"] + " - " + author_detail["Organization"],
-                    "hIndex": author_detail["H Index"],
-                    "i10Index": author_detail["I10 Index"],
-                    "citesTotal": author_detail["Total Cites"],
-                    "pubTotal": author_detail["Publications Found"],
-                }
-            # Add end node
-            if end_id not in nodes:
-                author_detail_res = await AuthorQuery.build_author_query_with_filter(pool, start_id).execute()
-                author_detail = author_detail_res[0]
-                nodes[end_id] = {
-                    "id": end_id,
-                    "label": link_result["end_label"],
-                    "image": link_result["end_image"],
-                    "avg_conference_rank": author_detail["Avg. Conf. Rank"],
-                    "avg_journal_rank": author_detail["Avg. Journal Rank"],
-                    "Organization": author_detail["Role"] + " - " + author_detail["Organization"],
-                    "hIndex": author_detail["H Index"],
-                    "i10Index": author_detail["I10 Index"],
-                    "citesTotal": author_detail["Total Cites"],
-                    "pubTotal": author_detail["Publications Found"],
-                }
-            # Add link
-            links.append(link)
+            # Merge partial dictionaries
+            for (ranks_dict, years_dict) in results:
+                for p, freq_map in ranks_dict.items():
+                    pair_to_ranks_freq[p] = freq_map
+                for p, y_map in years_dict.items():
+                    pair_to_years_freq[p] = y_map
 
-        app.logger.info("Fetched %d nodes ann %d links.", len(nodes), len(links))
+        # ---------------------------
+        # 4) Build links with publication data
+        # ---------------------------
+        links = []
+        for (s_id, s_label, s_img, e_id, e_label, e_img) in edges:
+            pair_key = tuple(sorted((s_id, e_id)))
+            rank_counts = pair_to_ranks_freq.get(pair_key, {})
+            years_map = pair_to_years_freq.get(pair_key, {})
 
-        return jsonify({
-            "nodes": list(nodes.values()),
-            "links": links
-        })
+            conf_freq = {}
+            jour_freq = {}
+            unranked = 0
+            for rank_str, cnt in rank_counts.items():
+                if rank_str in ["A*", "A", "B", "C"]:
+                    conf_freq[rank_str] = conf_freq.get(rank_str, 0) + cnt
+                elif rank_str in ["Q1", "Q2", "Q3", "Q4"]:
+                    jour_freq[rank_str] = jour_freq.get(rank_str, 0) + cnt
+                else:
+                    unranked += cnt
 
-    except ValueError as ve:
-        app.logger.error("Invalid input: %s", ve)
-        app.logger.error("Stack trace: %s", traceback.format_exc())
-        return jsonify({"error": "Invalid start_author_id or depth"}), 400
+            best_conf = max(conf_freq, key=conf_freq.get) if conf_freq else "Unranked"
+            best_jour = max(jour_freq, key=jour_freq.get) if jour_freq else "Unranked"
+
+            link_obj = {
+                "source": s_id,
+                "target": e_id,
+                "avg_conf_rank": best_conf,
+                "avg_journal_rank": best_jour,
+                "Unranked": unranked,
+            }
+            for yr, val in years_map.items():
+                link_obj[str(yr)] = val
+            for rank, val in conf_freq.items():
+                link_obj[str(rank)] = val
+            for rank, val in jour_freq.items():
+                link_obj[str(rank)] = val
+
+            links.append(link_obj)
+
+        return jsonify({"nodes": list(nodes.values()), "links": links})
+
     except Exception as e:
-        app.logger.error("Unexpected error in generate_graph: %s", e)
-        app.logger.error("Stack trace: %s", traceback.format_exc())
-        return jsonify({"error": "Internal Server Error"}), 500
+        app.logger.error(f"Error: {e}")
+        app.logger.error(traceback.format_exc())
+        return jsonify({"error": str(e)}), 500
 
 
 # ---------------------------
 # ASYNC HELPER FUNCTIONS
 # ---------------------------
+async def fetch_author_links_batch(author_ids):
+    if not author_ids:
+        return []
+    try:
+        return await AuthorQuery.build_author_group_query_batch(pool, author_ids).execute()
+    except Exception as e:
+        app.logger.error(f"fetch_author_links_batch error: {e}")
+        return []
+
+async def fetch_pub_info_subbatch(pairs):
+    if not pairs:
+        return {}, {}
+    ranks_rows = await fetch_pub_ranks_batch(pairs)
+    years_rows = await fetch_pub_years_batch(pairs)
+
+    ranks_freq = defaultdict(lambda: defaultdict(int))
+    years_freq = defaultdict(lambda: defaultdict(int))
+
+    for row in ranks_rows:
+        a1 = min(row["aid1"], row["aid2"])
+        a2 = max(row["aid1"], row["aid2"])
+        r = row["rank_name"]
+        ranks_freq[(a1, a2)][r] += row["rank_total_pubs"]
+
+    for row in years_rows:
+        a1 = min(row["aid1"], row["aid2"])
+        a2 = max(row["aid1"], row["aid2"])
+        y = row["publication_year"]
+        years_freq[(a1, a2)][y] += row["publication_count"]
+
+    return ranks_freq, years_freq
+
+async def fetch_pub_ranks_batch(pairs):
+    if not pairs:
+        return []
+    try:
+        return await PublicationQuery.build_author_publication_query_batch(pool, pairs).execute()
+    except Exception as e:
+        app.logger.error(f"fetch_pub_ranks_batch error: {e}")
+        return []
+
+async def fetch_pub_years_batch(pairs):
+    if not pairs:
+        return []
+    try:
+        return await PublicationQuery.build_author_publication_year_query_batch(pool, pairs).execute()
+    except Exception as e:
+        app.logger.error(f"fetch_pub_years_batch error: {e}")
+        return []
+
 async def fetch_author_links(author_id: int) -> list[dict]:
     """
     Example async function to fetch all co-author links for a given author

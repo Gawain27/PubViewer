@@ -2,9 +2,10 @@
   "max_pool_transactions": 100000,
   "max_active_transactions": 256,
   "max_overview_rows": 100,
-  "max_generative_depth": 3,
-  "db_url": "localhost",
-  "db_port": 5984,
+  "max_generative_depth": 5,
+  "max_tuple_per_query": 500,
+  "db_url": "172.16.0.10",
+  "db_port": 5432,
   "db_user": "pub",
   "db_password": "pubpassword",
   "db_name": "pub"

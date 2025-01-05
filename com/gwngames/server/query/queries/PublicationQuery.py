@@ -107,7 +107,7 @@ class PublicationQuery:
 
         publication_query.select(
             """
-            p.id AS ID,
+            DISTINCT p.id AS ID,
             p.title AS Title,
             p.publication_year as Year,
             p.publisher as Publisher,
@@ -136,80 +136,53 @@ class PublicationQuery:
         return publication_query
 
     @staticmethod
-    def build_author_publication_year_query(session, author1_id: int, author2_id: int) -> QueryBuilder:
-        # Initialize the QueryBuilder for the Publication table
-        query = QueryBuilder(session, Publication.__tablename__, "p")
-
-        # Join publication_author table for both authors
-        query.join(
-            "INNER", PublicationAuthor.__tablename__, "pa1",
-            on_condition="p.id = pa1.publication_id"
-        ).and_condition("pa1.author_id", author1_id)
-
-        query.join(
-            "INNER", PublicationAuthor.__tablename__, "pa2",
-            on_condition="p.id = pa2.publication_id"
-        ).and_condition("pa2.author_id", author2_id)
-
-        # Add condition to ensure journal_id or conference_id exists
-        query.and_condition(
-            value="(p.journal_id IS NOT NULL OR p.conference_id IS NOT NULL)",
-            parameter="",
-            custom=True
+    def build_author_publication_query_batch(session, pairs):
+        pairs = ','.join(str(pair) for pair in pairs)
+        qb = QueryBuilder(session, Publication.__tablename__, "p")
+        qb.join(
+            "INNER", PublicationAuthor.__tablename__, "pa1", "p.id = pa1.publication_id"
+        ).join(
+            "INNER", PublicationAuthor.__tablename__, "pa2", "p.id = pa2.publication_id"
+        ).join(
+            "LEFT", Journal.__tablename__, "j", "p.journal_id = j.id"
+        ).join(
+            "LEFT", Conference.__tablename__, "c", "p.conference_id = c.id"
         )
-
-        # Add condition to ensure publication_year is not null
-        query.and_condition(
-            value="p.publication_year IS NOT NULL",
-            parameter="",
-            custom=True
+        qb.and_condition("", "(j.q_rank IS NOT NULL OR c.rank IS NOT NULL)", custom=True)
+        qb.and_condition("", f"(pa1.author_id, pa2.author_id) IN ({pairs})", custom=True)
+        qb.select(
+            """
+            pa1.author_id AS aid1,
+            pa2.author_id AS aid2,
+            COALESCE(j.q_rank, c.rank) AS rank_name,
+            COUNT(p.id) AS rank_total_pubs
+            """
         )
-
-        # Select publication year and count
-        query.select(
-            "p.publication_year AS publication_year, COUNT(p.id) AS publication_count"
-        ).group_by(
-            "p.publication_year"
-        )
-
-        return query
+        qb.group_by("pa1.author_id", "pa2.author_id", "rank_name")
+        return qb
 
     @staticmethod
-    def build_author_publication_query(session, author1_id: int, author2_id: int) -> QueryBuilder:
-        # Initialize the QueryBuilder for the Publication table
-        query = QueryBuilder(session, Publication.__tablename__, "p")
-
-        # Join publication_author table for both authors
-        query.join(
-            "INNER", PublicationAuthor.__tablename__, "pa1",
-            on_condition="p.id = pa1.publication_id"
-        ).and_condition("pa1.author_id", author1_id)
-
-        query.join(
-            "INNER", PublicationAuthor.__tablename__, "pa2",
-            on_condition="p.id = pa2.publication_id"
-        ).and_condition("pa2.author_id", author2_id)
-
-        # Join with journal and conference tables
-        query.join(
-            "LEFT", Journal.__tablename__, "j", on_condition="p.journal_id = j.id"
+    def build_author_publication_year_query_batch(session, pairs):
+        pairs = ','.join(str(pair) for pair in pairs)
+        qb = QueryBuilder(session, Publication.__tablename__, "p")
+        qb.join(
+            "INNER", PublicationAuthor.__tablename__, "pa1", "p.id = pa1.publication_id"
         ).join(
-            "LEFT", Conference.__tablename__, "c", on_condition="p.conference_id = c.id"
+            "INNER", PublicationAuthor.__tablename__, "pa2", "p.id = pa2.publication_id"
         )
-
-        query.and_condition(
-            value="(j.q_rank IS NOT NULL OR c.rank IS NOT NULL)",
-            parameter="",
-            custom=True
+        qb.and_condition("", "(p.journal_id IS NOT NULL OR p.conference_id IS NOT NULL)", custom=True)
+        qb.and_condition("", "p.publication_year IS NOT NULL", custom=True)
+        qb.and_condition("",f"(pa1.author_id, pa2.author_id) IN ({pairs})", custom=True)
+        qb.select(
+            """
+            pa1.author_id AS aid1,
+            pa2.author_id AS aid2,
+            p.publication_year AS publication_year,
+            COUNT(p.id) AS publication_count
+            """
         )
-
-        query.select(
-            "COALESCE(j.q_rank, c.rank) AS rank_name, COUNT(p.id) AS rank_total_pubs"
-        ).group_by(
-            "rank_name"
-        )
-
-        return query
+        qb.group_by("pa1.author_id", "pa2.author_id", "p.publication_year")
+        return qb
 
 
 
