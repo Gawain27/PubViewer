@@ -43,7 +43,6 @@ class GeneralTableOverview:
 
         # Generate a unique table_id to store/retrieve the QueryBuilder from cache
         self.table_id: str = str(uuid.uuid4())
-        store_query_builder(self.table_id, self.query_builder)
 
         logger.info(
             f"Initialized GeneralTableOverview for '{table_title}' with limit={limit}, "
@@ -95,6 +94,8 @@ class GeneralTableOverview:
         Typically, we just render the skeleton or do a small initial fetch.
         """
         logger.info(f"Rendering table overview for '{self.table_title}' (table_id={self.table_id})")
+        store_query_builder(self.table_id, self.query_builder)
+
         # Optionally, we can fetch an initial page to show something by default:
         # or we can omit it and let the JavaScript fetch from /fetch_data
         # For demonstration, let's do an initial fetch:

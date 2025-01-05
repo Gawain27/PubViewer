@@ -17,6 +17,7 @@ from com.gwngames.client.general.GeneralTableCache import get_query_builder
 from com.gwngames.client.general.GeneralTableOverview import GeneralTableOverview
 from com.gwngames.config.Context import Context
 from com.gwngames.server.entity.base.Author import Author
+from com.gwngames.server.entity.base.Publication import Publication
 from com.gwngames.server.entity.variant.scholar.GoogleScholarAuthor import GoogleScholarAuthor
 from com.gwngames.server.entity.variant.scholar.GoogleScholarPublication import GoogleScholarPublication
 from com.gwngames.server.query.QueryBuilder import QueryBuilder
@@ -157,18 +158,38 @@ async def publications():
     but internally you must ensure your QueryBuilder calls use async psycopg,
     not synchronous SQLAlchemy.
     """
-    author = request.args.get('value', None)
+    author = request.args.get('Author ID', None)
+    if author is None:
+        author = request.args.get('value', None)
 
     query_builder: QueryBuilder = PublicationQuery.build_overview_publication_query(ctx.get_pool())
-    table_component = GeneralTableOverview(query_builder, "Publications Overview", limit=ctx.get_config().get_value("max_overview_rows"))
+    table_component = GeneralTableOverview(query_builder, "Publications Overview", limit=ctx.get_config().get_value("max_overview_rows"), enable_checkboxes=True)
 
     if author is not None:
-        author = f"%{author}%"
-        query_builder.having_and("STRING_AGG(DISTINCT lower(a.name), ', ')", author,
-                                 operator="LIKE", is_case_sensitive=False)
-        query_builder.offset(0).limit(ctx.get_config().get_value("max_overview_rows"))
+        author_values = ','.join([val.strip() for val in author.split(',') if val.strip()])
+        author_values = await (QueryBuilder(ctx.get_pool(), Author.__tablename__, "a")
+                               .and_condition("", f"a.id IN ({author_values})", custom=True)
+                               .select("a.name").execute())
 
-        # In an async world, you might do:
+        # Build conditions for each author value.
+        # Each condition is a tuple of (parameter, operator, value, custom),
+        conditions = []
+        for val in author_values:
+            like_val = f"%{val['name']}%"
+            conditions.append(
+                ("STRING_AGG(DISTINCT lower(a.name), ', ')", "LIKE", like_val, False)
+            )
+
+        # Add them as a nested condition in the HAVING clause:
+        # AND( param LIKE %val1% OR param LIKE %val2% OR ...)
+        query_builder.add_nested_conditions(
+            conditions=conditions,
+            operator_between_conditions="OR",
+            condition_type="AND",
+            is_having=True
+        )
+
+        query_builder.offset(0).limit(ctx.get_config().get_value("max_overview_rows"))
         external_records = await query_builder.execute()
         table_component.external_records = external_records
 
@@ -193,7 +214,10 @@ async def publications():
         or_split=False
     )
 
-    table_component.add_row_method("View Publication Details", "publication_details")
+    table_component.add_row_method("View Publications", "publication_details")
+    table_component.add_row_method("View Authors", "researchers")
+
+    table_component.add_page_method("View Combined Authors", "researchers")
 
     return await render_template(
         "template.html",
@@ -226,6 +250,10 @@ async def publication_details():
 
 @app.get('/researchers')
 async def researchers():
+    pubs = request.args.get('id', None)
+    if pubs is None:
+        pubs = request.args.get('value', None)
+
     query_builder: QueryBuilder = AuthorQuery.build_author_overview_query(ctx.get_pool())
 
     table_component = GeneralTableOverview(query_builder, "Researchers Overview",
@@ -233,6 +261,29 @@ async def researchers():
                                            image_field="Image url",
                                            enable_checkboxes=True
                                            )
+
+    if pubs is not None:
+        pub_ids = ','.join([val.strip() for val in pubs.split(',') if val.strip()])
+
+        author_names = await AuthorQuery.build_authors_from_pub_query(pool, pub_ids).execute()
+        conditions = []
+        for val in author_names:
+            conditions.append(
+                ("a.Name", "=", val['name'], False)
+            )
+
+        query_builder.add_nested_conditions(
+            conditions=conditions,
+            operator_between_conditions="OR",
+            condition_type="AND",
+            is_having=False
+        )
+
+        query_builder.offset(0).limit(ctx.get_config().get_value("max_overview_rows"))
+        external_records = await query_builder.execute()
+        table_component.external_records = external_records
+
+    table_component.query_builder = query_builder
     table_component.alias = query_builder.alias
     table_component.entity_class = query_builder.table_name
     table_component.add_filter("Author ID", filter_type="string", label="Author ID (, OR)", or_split=True, equal=True)
@@ -250,7 +301,9 @@ async def researchers():
         filter_type="string", label="Avg. Jour. Rank (, OR)", is_aggregated=True, or_split=True
     )
     table_component.add_row_method("View Author Details", "researcher_detail")
+    table_component.add_row_method("View Publication Details", "publications")
     table_component.add_page_method("View Combined Network", "author_network")
+    table_component.add_page_method("View Combined Publications", "publications")
 
     return await render_template(
         "template.html",
@@ -272,7 +325,7 @@ async def researcher_detail():
         image_field="Image url"
     )
 
-    data_viewer.add_row_method("View Publications", "publications", "Name")
+    data_viewer.add_row_method("View Publications", "publications", "Author ID")
     data_viewer.add_row_method("View Network", "author_network", "Author ID")
 
     return await render_template(

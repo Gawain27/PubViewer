@@ -1,3 +1,5 @@
+import logging
+
 from com.gwngames.server.entity.base.Author import Author
 from com.gwngames.server.entity.base.Conference import Conference
 from com.gwngames.server.entity.base.Interest import Interest
@@ -211,5 +213,43 @@ class AuthorQuery:
             "end_author.id", "end_author.name", "end_author.image_url"
         )
         return qb
+
+    @staticmethod
+    def build_authors_from_pub_query(session, pub_ids):
+        publication_author_query = QueryBuilder(
+            pool=session,
+            table_name="publication_author",
+            alias="pa"
+        )
+
+        publication_author_query.and_condition(
+            parameter="pa.publication_id",
+            value=f"pa.publication_id IN ({','.join([val.strip() for val in pub_ids.split(',') if val.strip()])})",
+            custom=True
+        )
+
+        author_query = QueryBuilder(
+            pool=session,
+            table_name="author",
+            alias="a"
+        )
+
+        author_query.join(
+            join_type="INNER",
+            other="publication_author",  # Use the actual table name
+            join_alias="pa",
+            this_field="id",  # Author.id
+            other_field="author_id"  # PublicationAuthor.author_id
+        )
+
+        author_query.select("DISTINCT a.name")
+
+        author_query.and_condition(
+            parameter="pa.publication_id",
+            value=f"pa.publication_id IN ({pub_ids})",
+            custom=True
+        )
+
+        return author_query
 
 

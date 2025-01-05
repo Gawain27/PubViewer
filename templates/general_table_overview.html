@@ -107,11 +107,13 @@
 
             {% if row_methods %}
             <td>
-              {% for method in row_methods %}
-              <a href="{{ url_for(method.endpoint, **row) }}" class="btn btn-sm btn-primary me-1">
-                {{ method.label }}
-              </a>
-              {% endfor %}
+                <div class="btn-container">
+                    {% for method in row_methods %}
+                    <a href="{{ url_for(method.endpoint, **row) }}" class="btn btn-sm btn-primary me-1">
+                        {{ method.label }}
+                    </a>
+                    {% endfor %}
+                </div>
             </td>
             {% endif %}
 

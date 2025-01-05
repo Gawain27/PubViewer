@@ -92,6 +92,14 @@ function getLinkColor(link, selectedConfRank, selectedJournRank) {
 // ======================================================
 // Updates the dropdown labels with graph nodes
 // ======================================================
+function sortOptions() {
+    const select = master_document.getElementById('node-label');
+    const options = Array.from(select.options);
+    options.sort((a, b) => a.textContent.localeCompare(b.textContent));
+    select.innerHTML = '';
+    options.forEach(option => select.appendChild(option));
+}
+
 function updateNodeDropdown(selectedId) {
     console.log("Updating node dropdown...");
     const nodeLabelDropdown = master_document.getElementById("node-label");
@@ -129,6 +137,7 @@ function updateNodeDropdown(selectedId) {
             nodeLabelDropdown.appendChild(newOption);
         }
     });
+    sortOptions()
     console.log("Dropdown update complete.");
 }
 
@@ -711,6 +720,11 @@ async function initGraph() {
 
 window.addEventListener("load", function () {
     console.log("Initializing dropdown on page load...");
+    const urlParams = new URLSearchParams(window.location.search);
+
+    const valueParam = urlParams.get('value');
+
+    const startIds = valueParam ? valueParam.split(',') : [];
 
     const nodeLabelDropdown = master_document.getElementById('node-label');
     for (let i = 0; i < startIds.length; i++){
@@ -722,6 +736,19 @@ window.addEventListener("load", function () {
             console.log("added: " + startLabels[i])
         }
     }
+
+    sortOptions();
+
+    // Turn the <select> into a Select2 dropdown
+    // If you’re in a multi-frame environment, you might need to target `$(master_document).find('#node-label')`.
+    // But for simplicity, let’s assume standard usage:
+    $(document).ready(function() {
+        $('#node-label').select2({
+            placeholder: 'Select a label...',
+            allowClear: true
+        });
+    });
+
     (async () => {
         await initGraph();
         console.log("Graph initialization script has finished.");

@@ -6,6 +6,7 @@
     <title>{{ title }}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
     <style>
         body {
             font-family: 'Roboto', sans-serif;
@@ -51,6 +52,11 @@
         }
 
         /* Button Styling */
+        .btn-container {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
         .btn-primary {
             background-color: #003366;
             border: none;
@@ -61,6 +67,7 @@
             transform: scale(1.05);
         }
         .btn-outline-primary {
+            margin: 10px;
             color: #003366;
             border-color: #003366;
             transition: background-color 0.3s ease, color 0.3s ease, transform 0.2s ease;
@@ -335,8 +342,113 @@
             background-color: #f9f9f9;
         }
 
+        .select2-container {
+          width: 100% !important; /* Ensure it uses full width of parent */
+          font-size: 16px;        /* Match your base font size */
+          font-family: 'Roboto', sans-serif; /* Match your font family */
+        }
+
+        /* Single selection styling */
+        .select2-container--default .select2-selection--single {
+          background-color: #fff;
+          border: 1px solid #ccc;
+          border-radius: 4px;
+          height: 44px; /* Slightly taller for comfortable click area */
+          transition: border-color 0.3s;
+          display: flex;       /* for vertical alignment of placeholder and arrow */
+          align-items: center; /* centers text/placeholder vertically */
+          padding: 0 10px;
+        }
+
+        .select2-container--default .select2-selection--single .select2-selection__rendered {
+          color: #333;
+          line-height: normal; /* ensures proper alignment with flex container */
+          padding: 0 8px;      /* small left/right padding for placeholder/text */
+        }
+
+        /* Placeholder text styling */
+        .select2-container--default .select2-selection--single .select2-selection__placeholder {
+          color: #aaa; /* Subtle gray color for placeholders */
+        }
+
+        /* Arrow icon in single selection */
+        .select2-container--default .select2-selection--single .select2-selection__arrow {
+          height: 100%;
+          right: 8px;
+          width: 16px;
+        }
+
+        /* Hover and focus states */
+        .select2-container--default .select2-selection--single:hover,
+        .select2-container--default .select2-selection--single:focus,
+        .select2-container--default.select2-container--focus .select2-selection--single {
+          border-color: #00509e; /* Use your hover/focus color (#00509e) */
+        }
+
+        /* Dropdown (results) styling */
+        .select2-container--default .select2-dropdown {
+          background-color: #ffffff;
+          border: 1px solid #ccc;
+          border-radius: 4px;
+          box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+          margin-top: 4px;
+        }
+
+        /* Fix the filter input so it fits nicely inside the dropdown */
+        .select2-container--default .select2-search--dropdown .select2-search__field {
+          width: 100% !important;
+          box-sizing: border-box;
+
+          padding: 8px;
+          font-size: 14px;
+
+          margin: 0;
+            border: 1px solid #ccc;
+          border-radius: 4px;
+        }
+
+        /* Results (list options) */
+        .select2-container--default .select2-results__option {
+          color: #333;
+          padding: 8px 12px;
+          font-size: 15px;
+        }
+
+        /* Hovered or highlighted list option */
+        .select2-container--default .select2-results__option--highlighted.select2-results__option--selectable {
+          background-color: #f2f2f2;
+          color: #003366;
+          cursor: pointer;
+        }
+
+        /* Disabled option styling */
+        .select2-container--default .select2-results__option--disabled {
+          color: #aaa;
+          cursor: not-allowed;
+        }
+
+        .select2-container--default .select2-selection--multiple .select2-selection__choice {
+          background-color: #e5e5e5;
+          border: none;
+          border-radius: 2px;
+          color: #333;
+          font-size: 14px;
+          padding: 2px 6px;
+        }
+
+        /* Remove X in multiple tags on hover */
+        .select2-container--default .select2-selection--multiple .select2-selection__choice__remove {
+          color: #333;
+          font-weight: bold;
+          margin-right: 4px;
+          transition: color 0.3s;
+        }
+        .select2-container--default .select2-selection--multiple .select2-selection__choice__remove:hover {
+          color: red;
+        }
 
     </style>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://d3js.org/d3.v6.min.js"></script>
 </head>
 <body>
@@ -387,6 +499,7 @@
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
     <!-- Don't move elsewhere or stuff breaks -->
     <script>

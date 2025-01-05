@@ -180,7 +180,7 @@ class QueryBuilder:
         Add a nested condition to the query, e.g., AND(cond1 OR cond2 OR cond3 ...).
 
         :param conditions: A list of conditions, where each condition is a tuple containing:
-                           (parameter, operator, value, custom, is_case_sensitive).
+                           (parameter, operator, value, custom).
                            `custom` indicates if the condition is a raw SQL condition.
         :param operator_between_conditions: The operator between the nested conditions, e.g., OR.
         :param condition_type: The operator for the overall condition, e.g., AND.
