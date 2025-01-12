@@ -44,6 +44,11 @@ class ConferenceQuery:
             on_condition="pa.publication_id = p.id"
         ).join(
             join_type="INNER",
+            other="google_scholar_author",
+            join_alias="gsa",
+            on_condition="gsa.author_key = a.id"
+        ).join(
+            join_type="INNER",
             other=f"(VALUES {conference_ids})",
             join_alias="conf_id(id)",
             on_condition="p.conference_id = conf_id.id"

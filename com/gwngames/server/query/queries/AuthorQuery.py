@@ -83,13 +83,13 @@ class AuthorQuery:
                 ) * 10
                 ELSE 0
             END AS "Avg. SJR Score",
-            COALESCE(select sum(tot) from(
+            (select sum(tot) from(
             select gsp.total_citations as tot from publication_author paa, publication pp, google_scholar_publication gsp
             where {author_id} = paa.author_id and gsp.publication_key = pp.id and pp.id = paa.publication_id
             group by pp.title, gsp.total_citations
-            ), 0) AS "Total Cites",
-            COALESCE(select count(*) from publication pp, publication_author paa where paa.author_id = {author_id}
-                and pp.id = paa.publication_id, 0) AS "Publications Found"
+            )) AS "Total Cites",
+            COALESCE((select count(*) from publication pp, publication_author paa where paa.author_id = {author_id}
+                and pp.id = paa.publication_id), 0) AS "Publications Found"
             """
         )
 

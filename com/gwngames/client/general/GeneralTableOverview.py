@@ -62,6 +62,7 @@ class GeneralTableOverview:
         is_aggregated: bool = False,
         or_split: bool = False,
         equal: bool = False,
+        int_like: bool = False
     ):
         """
         Add a filter to the table.
@@ -73,6 +74,7 @@ class GeneralTableOverview:
             "is_aggregated": is_aggregated,
             "or_split": or_split,
             "equal": equal,
+            "int_like": int_like
         })
         logger.debug(f"Added filter: {field_name}, type: {filter_type}, aggregated={is_aggregated}")
 
@@ -167,6 +169,9 @@ class GeneralTableOverview:
         """
         Handle string filters, applying them to the query builder.
         """
+        if filter_element["int_like"] and not filter_value.isnumeric():
+            return
+
         field_name = filter_element["field_name"]
         logger.debug(
             f"Handling string filter for field: {field_name}, value: {filter_value}")

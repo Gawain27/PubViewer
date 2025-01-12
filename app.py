@@ -244,7 +244,7 @@ async def publications():
 
     table_component.entity_class = query_builder.table_name
     table_component.alias = query_builder.alias
-    table_component.add_filter("p.id", "string", "Pub. ID (OR)", or_split=True, equal=True)
+    table_component.add_filter("p.id", "string", "Pub. ID (OR)", or_split=True, equal=True, int_like=True)
     table_component.add_filter("p.title", "string", "Title (OR)", or_split=True)
     table_component.add_filter(
         "c.rank",
@@ -311,8 +311,9 @@ async def researchers():
         pubs = request.args.get('value', None)
     if pubs is None:
         journal = request.args.get('Journal ID', None)
-    if pubs is None and journals is None:
-        conference = request.args.get('Conf ID', None)
+
+    conference = request.args.get('Conf ID', None)
+
 
     query_builder: QueryBuilder = AuthorQuery.build_author_overview_query(ctx.get_pool())
 
@@ -398,7 +399,7 @@ async def researchers():
     table_component.query_builder = query_builder
     table_component.alias = query_builder.alias
     table_component.entity_class = query_builder.table_name
-    table_component.add_filter("ab.id", filter_type="string", label="Author ID (OR)", or_split=True, equal=True)
+    table_component.add_filter("ab.id", filter_type="string", label="Author ID (OR)", or_split=True, equal=True, int_like=True)
     table_component.add_filter("ab.Name", filter_type="string", label="Name (OR)", or_split=True)
     table_component.add_filter(
         "i.interests",
@@ -465,7 +466,7 @@ async def conferences():
 
     table_component.entity_class = query_builder.table_name
     table_component.alias = query_builder.alias
-    table_component.add_filter("c.id", filter_type="string", label="ID (OR)", or_split=True, equal=True)
+    table_component.add_filter("c.id", filter_type="string", label="ID (OR)", or_split=True, equal=True, int_like=True)
     table_component.add_filter("c.title", "string", "Title (OR)", or_split=True)
     table_component.add_filter("c.acronym", "string", "Acronym (OR)", or_split=True)
     table_component.add_filter("c.rank", "string", "Rank (OR)", or_split=True, equal=True)
@@ -490,7 +491,7 @@ async def journals():
                                            enable_checkboxes=True, url_fields=["Journal Page"])
     table_component.entity_class = query_builder.table_name
     table_component.alias = query_builder.alias
-    table_component.add_filter("j.id", filter_type="string", label="ID (OR)", or_split=True, equal=True)
+    table_component.add_filter("j.id", filter_type="string", label="ID (OR)", or_split=True, equal=True, int_like=True)
     table_component.add_filter("j.title", "string", "Title (OR)", or_split=True)
     table_component.add_filter("j.q_rank", "string", "Rank (OR)", or_split=True, equal=True)
     table_component.add_filter("j.year", "integer", "Year")
@@ -535,6 +536,13 @@ async def journal_network():
     start_authors = await JournalQuery.build_authors_from_journals_query(pool, journal_ids).execute()
     start_author_ids = ','.join([str(val['id']) for val in start_authors if val['id']])
 
+    numbers = start_author_ids.split(',')
+    numbers = [item for item in numbers if item != '']
+    if len(numbers) <= 0:
+        return "No authors found for the selected journal(s)", 200
+
+    start_author_ids = ','.join(f"({num})" for num in numbers)
+
     if not start_author_ids:
         return "No authors found for the selected journal(s)", 200
 
@@ -554,8 +562,12 @@ async def conference_network():
     start_authors = await ConferenceQuery.build_authors_from_conferences_query(pool, conference_ids).execute()
     start_author_ids = ','.join([str(val['id']) for val in start_authors if val['id']])
 
-    if not start_author_ids:
+    numbers = start_author_ids.split(',')
+    numbers = [item for item in numbers if item != '']
+    if len(numbers) <= 0:
         return "No authors found for the selected conference(s)", 200
+
+    start_author_ids = ','.join(f"({num})" for num in numbers)
 
     return await render_network(start_author_ids)
 

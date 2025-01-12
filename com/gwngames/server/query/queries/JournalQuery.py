@@ -50,6 +50,11 @@ class JournalQuery:
             on_condition="pa.publication_id = p.id"
         ).join(
             join_type="INNER",
+            other="google_scholar_author",
+            join_alias="gsa",
+            on_condition="gsa.author_key = a.id"
+        ).join(
+            join_type="INNER",
             other=f"(VALUES {journal_ids})",
             join_alias="journ_id(id)",
             on_condition="p.journal_id = journ_id.id"
