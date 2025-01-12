@@ -4,13 +4,21 @@
         No data available.
     </div>
     {% else %}
-    <div class="card d-flex flex-row" style="max-width: 600px;">
+    <div class="card d-flex flex-row">
         {% if image_url %}
-        <img src="{{ image_url }}" class="card-img-left" alt="Image" onerror="if (this.src !== '/static/resource/avatar.png') this.src='/static/resource/avatar.png';" style="width: 200px; height: auto; object-fit: cover;">
+        <img src="{{ image_url }}" class="card-img-left" alt="Image"
+             onerror="if (this.src !== '/static/resource/avatar.png') this.src='/static/resource/avatar.png';"
+             style="width: 200px; height: auto; object-fit: cover;">
         {% endif %}
         <div class="card-body">
             <h3 class="card-title">{{ title }}</h3>
-            <p class="card-text">{{ description }}</p>
+            {% if is_description_url %}
+                <a href="{{ description }}" class="btn btn-primary btn-sm" target="_blank">
+                    Visit External Page
+                </a>
+            {% else %}
+                <p class="card-text"> {{ description }}</p>
+            {% endif %}
             {% if row_methods %}
             <div class="mt-3">
                 {% for method in row_methods %}
@@ -36,7 +44,17 @@
                 {% for key, value in details.items() %}
                 <tr>
                     <td>{{ key }}</td>
-                    <td>{{ value }}</td>
+                    <td>
+                        {% if key in url_fields %}
+                            <!-- If it's a URL field, show a button that links to the value -->
+                            <a href="{{ value }}" class="btn btn-primary btn-sm" target="_blank">
+                                Open {{ key }}
+                            </a>
+                        {% else %}
+                            <!-- Otherwise, just display the value -->
+                            {{ value }}
+                        {% endif %}
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -44,3 +62,4 @@
     </div>
     {% endif %}
 </div>
+

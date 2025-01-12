@@ -16,7 +16,8 @@ class GeneralTableOverview:
         table_title: str,
         limit: int = 100,
         image_field: Optional[str] = None,
-        enable_checkboxes: bool = False
+        enable_checkboxes: bool = False,
+        url_fields=None,
     ):
         """
         Initialize the GeneralTableOverview.
@@ -27,6 +28,10 @@ class GeneralTableOverview:
         :param image_field:   The field in the row data containing the image URL.
         :param enable_checkboxes: Whether to display checkboxes in each row.
         """
+        if url_fields is None:
+            self.url_fields = []
+        else:
+            self.url_fields = url_fields
         self.query_builder: QueryBuilder = query_builder
         self.table_title: str = table_title
         self.limit: int = limit
@@ -118,6 +123,17 @@ class GeneralTableOverview:
         # Attempt a minimal initial fetch
         self.query_builder.offset(init_offset).limit(self.limit)
         init_rows = await self.query_builder.execute()
+
+        unique_ids = set()
+        filtered_rows = []
+        for row in init_rows:
+            first_property = next(iter(row))
+            if row[first_property] not in unique_ids:
+                filtered_rows.append(row)
+                unique_ids.add(row[first_property])
+        # Overwrite init_rows with the unique rows
+        init_rows[:] = filtered_rows
+
         if init_rows:
             columns = list(init_rows[0].keys())
 
@@ -143,7 +159,8 @@ class GeneralTableOverview:
             columns=columns,
             offset=init_offset,
             limit=self.limit,
-            total_count=total_count
+            total_count=total_count,
+            url_fields=self.url_fields,
         )
 
     def handle_string_filter(self, filter_element, filter_value, or_split, equal):
@@ -162,10 +179,10 @@ class GeneralTableOverview:
             or_conditions = []
             for value in filter_values:
                 if is_aggregated:  # Check if field is aggregated
-                    condition = (field_name, "ILIKE", f"%{value}%" if not equal else f"{value}", False)
+                    condition = (field_name, "ILIKE" if not equal else "=" , f"%{value}%" if not equal else f"{value}", False)
                     or_conditions.append(condition)
                 else:
-                    condition = (f"{self.query_builder.alias}.{field_name}", "ILIKE", f"%{value}%" if not equal else f"{value}", False)
+                    condition = (f"{field_name}", "ILIKE" if not equal else "=", f"%{value}%" if not equal else f"{value}", False)
                     or_conditions.append(condition)
 
             self.query_builder.add_nested_conditions(
@@ -180,13 +197,13 @@ class GeneralTableOverview:
                     self.query_builder.having_and(
                         field_name,
                         f"%{value}%" if not equal else f"{value}",
-                        operator="ILIKE"
+                        operator="ILIKE" if not equal else "="
                     )
                 else:
                     self.query_builder.and_condition(
-                        f"{self.query_builder.alias}.{field_name}",
+                        f"{field_name}",
                         f"%{value}%" if not equal else f"{value}",
-                        operator="ILIKE"
+                        operator="ILIKE" if not equal else "="
                     )
 
 
@@ -197,13 +214,21 @@ class GeneralTableOverview:
 
         if from_value is not None and from_value != '':
             self.query_builder.and_condition(
-                f"{self.query_builder.alias}.{filter_element['field_name']}",
+                f"{filter_element['field_name']}",
                 int(from_value),
+                operator=">="
+            ).and_condition(
+                f"{filter_element['field_name']}",
+                int(1950),
                 operator=">="
             )
         if to_value is not None and to_value != '':
             self.query_builder.and_condition(
-                f"{self.query_builder.alias}.{filter_element['field_name']}",
+                f"{filter_element['field_name']}",
                 int(to_value),
                 operator="<="
+            ).and_condition(
+                f"{filter_element['field_name']}",
+                int(1950),
+                operator=">="
             )

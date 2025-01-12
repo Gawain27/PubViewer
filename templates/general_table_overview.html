@@ -1,155 +1,170 @@
 <!-- TABLE TITLE & PAGE-METHODS (top-level buttons) -->
 <div>
     <div class="d-flex justify-content-between align-items-center mb-3">
-    <h2 class="table-title">{{ table_title }}</h2>
+        <h2 class="table-title">{{ table_title }}</h2>
 
-    {% if page_methods %}
-    <!-- If we have page-level methods, place them here -->
-    <div class="d-flex">
-      {% for pm in page_methods %}
-      <button
-        type="button"
-        class="btn btn-secondary ms-2"
-        onclick="handlePageMethod('{{ pm.endpoint }}')">
-        {{ pm.label }}
-      </button>
-      {% endfor %}
-    </div>
-    {% endif %}
-    </div>
-
-    <!-- FILTERS FORM (optional) -->
-    <form id="filter-form" class="row g-3 mb-3">
-    {% for filter in filters %}
-      <div class="col-auto">
-        <label for="filter-{{ filter.field_name }}" class="form-label">{{ filter.label }}</label>
-        {% if filter.filter_type == "string" %}
-          <input
-            type="text"
-            class="form-control"
-            id="filter-{{ filter.field_name }}"
-            name="{{ filter.field_name }}"
-            placeholder="Filter by {{ filter.label }}"
-            value="{{ request.args.get(filter.field_name, '') }}">
-        {% elif filter.filter_type == "integer" %}
-          <div class="d-flex">
-            <input
-              type="number"
-              class="form-control me-1"
-              placeholder="From"
-              name="{{ filter.field_name }}_from"
-              value="{{ request.args.get(filter.field_name ~ '_from', '') }}">
-
-            <input
-              type="number"
-              class="form-control ms-1"
-              placeholder="To"
-              name="{{ filter.field_name }}_to"
-              value="{{ request.args.get(filter.field_name ~ '_to', '') }}">
-
-          </div>
+        {% if page_methods %}
+        <div class="d-flex">
+            <span id="page-counter" class="ms-3">
+                Page {{ offset // limit + 1 }} of {{ (total_count + limit - 1) // limit }}
+            </span>
+            {% for pm in page_methods %}
+            <button
+                type="button"
+                class="btn btn-secondary ms-2"
+                onclick="handlePageMethod('{{ pm.endpoint }}')">
+                {{ pm.label }}
+            </button>
+            {% endfor %}
+        </div>
         {% endif %}
-      </div>
-    {% endfor %}
-    <div class="col-auto">
-        <button type="submit" name="apply_filters" value="true" class="btn btn-primary ms-3">Search</button>
     </div>
+
+    <form id="filter-form" class="row g-3 mb-3">
+        {% for filter in filters %}
+        <div class="col-auto">
+            <label for="filter-{{ filter.field_name }}" class="form-label">{{ filter.label }}</label>
+            {% if filter.filter_type == "string" %}
+            <input
+                type="text"
+                class="form-control"
+                id="filter-{{ filter.field_name }}"
+                name="{{ filter.field_name }}"
+                placeholder="Filter by {{ filter.label }}"
+                value="{{ request.args.get(filter.field_name, '') }}">
+            {% elif filter.filter_type == "integer" %}
+            <div class="d-flex">
+                <input
+                    type="number"
+                    class="form-control me-1"
+                    placeholder="From"
+                    name="{{ filter.field_name }}_from"
+                    value="{{ request.args.get(filter.field_name ~ '_from', '') }}">
+
+                <input
+                    type="number"
+                    class="form-control ms-1"
+                    placeholder="To"
+                    name="{{ filter.field_name }}_to"
+                    value="{{ request.args.get(filter.field_name ~ '_to', '') }}">
+
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+        <div class="col-auto">
+            <button type="submit" name="apply_filters" value="true" class="btn btn-primary ms-3">Search</button>
+        </div>
     </form>
 
-    <!-- TABLE + PAGINATION CONTROLS -->
+    <h6 style="color: gray; font-style: italic;">
+        Filters rely on likeness, you may use comma(s) to concatenate multiple values - You may click on a column to order values
+    </h6>
+
     <div class="table-responsive">
-    <table class="table table-bordered table-hover" id="overview-table">
-      <thead class="table-dark">
-        <tr>
-          {% if enable_checkboxes %}
-          <th class="checkbox-column">
-            <input type="checkbox" id="select-all-checkbox" onclick="toggleSelectAll(this)">
-          </th>
-          {% endif %}
-          {% if image_field %}
-            <th>Image</th>
-          {% endif %}
-          {% if row_methods %}
-            <th>Actions</th>
-          {% endif %}
-          <!-- Other columns -->
-          {% for column in columns %}
-            {% if column != image_field %}
-              <th>{{ column }}</th>
-            {% endif %}
-          {% endfor %}
-        </tr>
-      </thead>
-      <tbody id="table-body">
-        <!-- We populate the table with initial_rows (server-side), then subsequent pages via JS -->
-        {% for row in initial_rows %}
-          <tr>
-            {% if enable_checkboxes %}
-                <td class="checkbox-column">
-                  <input
-                    type="checkbox"
-                    class="row-checkbox"
-                    data-row-id="{{ row.values()|list|first }}"
-                  >
-                </td>
-            {% endif %}
-
-
-            {% if image_field %}
-            <td>
-              {% if row[image_field] %}
-                <img src="{{ row[image_field] }}" alt="Image" onerror="if (this.src !== '/static/resource/avatar.png') this.src='/static/resource/avatar.png';" style="width: 50px; height: 50px; object-fit: cover;"/>
-              {% else %}
-                <span>No Image</span>
-              {% endif %}
-            </td>
-            {% endif %}
-
-            {% if row_methods %}
-            <td>
-                <div class="btn-container">
-                    {% for method in row_methods %}
-                    <a href="{{ url_for(method.endpoint, **row) }}" class="btn btn-sm btn-primary me-1">
-                        {{ method.label }}
-                    </a>
+        <table class="table table-bordered table-hover" id="overview-table">
+            <thead class="table-dark">
+                <tr>
+                    {% if enable_checkboxes %}
+                    <th class="checkbox-column">
+                        <input type="checkbox" id="select-all-checkbox" onclick="toggleSelectAll(this)">
+                    </th>
+                    {% endif %}
+                    {% if image_field %}
+                    <th>Image</th>
+                    {% endif %}
+                    {% if row_methods %}
+                    <th>Actions</th>
+                    {% endif %}
+                    {% for column in columns %}
+                    {% if column != image_field %}
+                    <th
+                        class="sortable-header"
+                        onclick="handleHeaderClick(this, '{{ column }}')"
+                        data-order="DESC">
+                        {{ column }}
+                        <span class="sort-arrow"></span>
+                    </th>
+                    {% endif %}
                     {% endfor %}
-                </div>
-            </td>
-            {% endif %}
+                </tr>
+            </thead>
+            <tbody id="table-body">
+                {% for row in initial_rows %}
+                <tr>
+                    {% if enable_checkboxes %}
+                    <td class="checkbox-column">
+                        <input
+                            type="checkbox"
+                            class="row-checkbox"
+                            data-row-id="{{ row.values()|list|first }}">
+                    </td>
+                    {% endif %}
 
-            {% for column in columns %}
-              {% if column != image_field %}
-              <td>{{ row[column] }}</td>
-              {% endif %}
-            {% endfor %}
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+                    {% if image_field %}
+                    <td>
+                        {% if row[image_field] %}
+                        <img src="{{ row[image_field] }}" alt="Image" onerror="if (this.src !== '/static/resource/avatar.png') this.src='/static/resource/avatar.png';" style="width: 80px; height: 80px; object-fit: cover;"/>
+                        {% else %}
+                        <span>No Image</span>
+                        {% endif %}
+                    </td>
+                    {% endif %}
+
+                    {% if row_methods %}
+                    <td>
+                        <div class="btn-container">
+                            {% for method in row_methods %}
+                            <a href="{{ url_for(method.endpoint, **row) }}" class="btn btn-sm btn-primary me-1">
+                                {{ method.label }}
+                            </a>
+                            {% endfor %}
+                        </div>
+                    </td>
+                    {% endif %}
+
+                    {% for column in columns %}
+                    {% if column != image_field %}
+                    {% if column in url_fields and row[column] != "N/A" %}
+                    <td>
+                        <a href="{{ row[column] }}" class="btn btn-primary btn-sm" target="_blank">
+                            Open {{ column }}
+                        </a>
+                    </td>
+                    {% else %}
+                    <td>{{ row[column] }}</td>
+                    {% endif %}
+                    {% endif %}
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
 
     <div class="d-flex justify-content-between align-items-center mt-3">
         <button
-          class="btn btn-outline-primary"
-          type="button"
-          id="prevBtn"
-          onclick="prevPage()"
-          {% if offset <= 0 %} disabled {% endif %}>
-          ← Previous
+            class="btn btn-outline-primary"
+            type="button"
+            id="prevBtn"
+            onclick="prevPage()"
+            {% if offset <= 0 %} disabled {% endif %}>
+            ← Previous
         </button>
         <span id="statusSpan">
-          Showing results {{ offset + 1 }} to {{ offset + limit }}
-          of {{ total_count }}
+            Showing results {{ offset + 1 }} to {{ offset + limit }}
+            of {{ total_count }}
         </span>
         <button
-          class="btn btn-outline-primary"
-          type="button"
-          id="nextBtn"
-          onclick="nextPage()"
-          {% if offset + limit >= total_count %} disabled {% endif %}>
-          Next →
+            class="btn btn-outline-primary"
+            type="button"
+            id="nextBtn"
+            onclick="nextPage()"
+            {% if offset + limit >= total_count %} disabled {% endif %}>
+            Next →
         </button>
     </div>
+
     <!-- Hidden data to keep track of table_id, offset, limit, total_count, etc. -->
     <input type="hidden" id="tableId" value="{{ table_id }}">
     <input type="hidden" id="offset" value="{{ offset }}">

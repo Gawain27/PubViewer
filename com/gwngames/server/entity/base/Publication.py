@@ -21,6 +21,7 @@ class Publication(BaseEntity):
     pages = Column(String)
     publisher = Column(String)
     description = Column(Text)
+    authors = Column(Text)
 
     journal_id = Column(Integer, ForeignKey('journal.id'), nullable=True)
     journal = relationship("Journal", back_populates="publications")

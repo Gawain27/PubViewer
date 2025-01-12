@@ -4,18 +4,18 @@
 const GRAPH_DIMENSIONS = { width: 1000, height: 600 };
 
 const FORCE_SETTINGS = {
-    linkStrength: 1,
-    chargeStrength: -300,
+    linkStrength: 2,
+    chargeStrength: -500,
     collideRadius: 60,
     collideStrength: 1,
-    linkDistanceScale: 7,
+    linkDistanceScale: 6.5,
     zoomStep: 1.1,
     simulationMaxRuntime: 5000
 };
 
 const LINK_WIDTH_SCALE = d3.scaleLinear()
-    .domain([0, 50])   // domain (up to 50 publications for max thickness)
-    .range([1, 12])    // min thickness 1, max thickness 8
+    .domain([0, 20])   // domain (up to 20 publications for max thickness)
+    .range([1, 12])    // min thickness 1, max thickness 12
     .clamp(true);      // do not exceed the range
 
 // ======================================================
@@ -31,23 +31,24 @@ let zoomBehavior;
 // ======================================================
 function getConfColor(rank) {
     switch (rank.trim().toUpperCase()) {
-        case "A*": return "#008000";     // Green
-        case "A":  return "#9ACD32";     // Yellow-Green
-        case "B":  return "#FFFF00";     // Yellow
-        case "C":  return "#FFA500";     // Orange
-        default:   return "#FF0000";     // Red
+        case "A*": return "#1E90FF";     // Dodger Blue
+        case "A":  return "#228B22";     // Forest Green
+        case "B":  return "#FFD700";     // Gold
+        case "C":  return "#FF8C00";     // Dark Orange
+        default:   return "#FF4500";     // Orange Red
     }
 }
 
 function getJournColor(rank) {
     switch (rank.trim().toUpperCase()) {
-        case "Q1": return "#008000";     // Green
-        case "Q2": return "#9ACD32";     // Yellow-Green
-        case "Q3": return "#FFFF00";     // Yellow
-        case "Q4": return "#FFA500";     // Orange
-        default:   return "#FF0000";     // Red
+        case "Q1": return "#1E90FF";     // Dodger Blue
+        case "Q2": return "#228B22";     // Forest Green
+        case "Q3": return "#FFD700";     // Gold
+        case "Q4": return "#FF8C00";     // Dark Orange
+        default:   return "#FF4500";     // Orange Red
     }
 }
+
 
 /**
  * Linearly blend two hex colors by 50/50
@@ -65,14 +66,14 @@ function blendColors(color1, color2) {
  *  If both are defined, blend. If only conf is defined, return conf color.
  *  If only journ is defined, return journ color. Otherwise red.
  */
-function getLinkColor(link, selectedConfRank, selectedJournRank) {
-    if (selectedConfRank && selectedJournRank) {
+function getLinkColor(link, selectedConfRank, selectedJournRank, isLinkFilter) {
+    if (selectedConfRank && selectedJournRank && isLinkFilter) {
         const cColor = getConfColor(selectedConfRank);
         const jColor = getJournColor(selectedJournRank);
         return blendColors(cColor, jColor);
-    } else if (selectedConfRank) {
+    } else if (selectedConfRank && isLinkFilter) {
         return getConfColor(selectedConfRank);
-    } else if (selectedJournRank) {
+    } else if (selectedJournRank && isLinkFilter) {
         return getJournColor(selectedJournRank);
     } else {
         if (link.avg_conf_rank && link.avg_conf_rank !== "" && link.avg_journal_rank && link.avg_journal_rank !== ""){
@@ -84,7 +85,7 @@ function getLinkColor(link, selectedConfRank, selectedJournRank) {
         } else if (link["avg_journal_rank"] && link["avg_journal_rank"] !== ""){
             return getJournColor(link["avg_journal_rank"]);
         } else {
-            return "#FF0000";
+            return "#FF4500";
         }
     }
 }
@@ -116,7 +117,7 @@ function updateNodeDropdown(selectedId) {
         const options = nodeLabelDropdown.options;
         let found = false;
         for (let i = 0; i < options.length; i++) {
-            if (options[i].value === selectedId) {
+            if (selectedId.includes(options[i].value)) {
                 nodeLabelDropdown.selectedIndex = i;
                 found = true;
                 break;
@@ -184,65 +185,50 @@ function updatePubCount(conferenceRank, journalRank, fromYear, toYear) {
     console.log("Updating pub_count for links with new rules...");
     console.log(`conferenceRank: ${conferenceRank}, journalRank: ${journalRank}, fromYear: ${fromYear}, toYear: ${toYear}`);
 
-    // Determine if we have any rank filter
     const hasConferenceFilter = conferenceRank && conferenceRank.trim() !== "";
     const hasJournalFilter = journalRank && journalRank.trim() !== "";
     const userHasRankFilter = hasConferenceFilter || hasJournalFilter;
 
-    // Determine if we have any year filter
     const fromYearNum = fromYear ? parseInt(fromYear, 10) : NaN;
     const toYearNum = toYear ? parseInt(toYear, 10) : NaN;
     const userHasYearFilter = (!isNaN(fromYearNum) || !isNaN(toYearNum));
 
-    // Helper to check if a property is within the user’s fromYear–toYear range
+    // Get the current year to enforce the upper limit
+    const currentYear = new Date().getFullYear();
+
+    // Helper to check if a property is within the valid range
     function isWithinYearRange(propKey) {
         const year = parseInt(propKey, 10);
         if (isNaN(year)) return false; // Not a numeric property
+        if (year < 1950 || year > currentYear) return false; // Exclude out-of-range years
         if (!isNaN(fromYearNum) && year < fromYearNum) return false;
-        return !(!isNaN(toYearNum) && year > toYearNum);
+        if (!isNaN(toYearNum) && year > toYearNum) return false;
+        return true;
     }
 
     graphData.links.forEach((link) => {
-        // 1) Calculate total year-based sum (all years, ignoring fromYear/toYear)
         let yearSumAll = 0;
-        // 2) Calculate year-based sum in the range [fromYear, toYear]
         let yearSumInRange = 0;
-        // 3) Calculate rank-based sum of the chosen conf/journal ranks
         let rankSum = 0;
 
-        // -------------------------------------------------
-        // Gather sums
-        // -------------------------------------------------
         Object.keys(link).forEach((propKey) => {
-            // Skip the typical source/target
             if (propKey === "source" || propKey === "target") return;
 
-            // If it's a numeric year property
             if (!isNaN(parseInt(propKey, 10))) {
                 const val = link[propKey];
-                if (typeof val === "number") {
-                    // Add to the "all years" sum
+                if (typeof val === "number" && propKey >= "1950" && propKey <= currentYear.toString()) {
                     yearSumAll += val;
 
-                    // If user has year filters, and it's in range,
-                    // also add to yearSumInRange
                     if (userHasYearFilter && isWithinYearRange(propKey)) {
                         yearSumInRange += val;
                     }
-                    // If user has no year filter, yearSumInRange
-                    // is the same as yearSumAll => we'll handle after
                 }
-            }
-            else {
-                // It's a rank-based property (A*, A, B, Q1, Q2, etc.)
-                // Add only if user’s filter matches it
+            } else {
                 if (userHasRankFilter) {
-                    // If user selected a conf rank that matches propKey
                     if (hasConferenceFilter && propKey === conferenceRank) {
                         const val = link[propKey];
                         if (typeof val === "number") rankSum += val;
                     }
-                    // If user selected a journal rank that matches propKey
                     if (hasJournalFilter && propKey === journalRank) {
                         const val = link[propKey];
                         if (typeof val === "number") rankSum += val;
@@ -251,36 +237,19 @@ function updatePubCount(conferenceRank, journalRank, fromYear, toYear) {
             }
         });
 
-        // If user has no year filter, we consider the entire sum for yearSumInRange
         if (!userHasYearFilter) {
             yearSumInRange = yearSumAll;
         }
 
-        // If user DID NOT select any conf/journal rank,
-        // then rankSum = 0 (we consider none).
-        // Alternatively, if user didn't pick a rank at all,
-        // that sum remains 0 from above logic.
-
-        // -------------------------------------------------
-        // Compute final pub_count based on the rules:
-        // -------------------------------------------------
         let pubCount;
-
-        // (A) No rank, no year => just sum all years
         if (!userHasRankFilter && !userHasYearFilter) {
             pubCount = yearSumAll;
-        }
-        // (B) Rank filter but no year filter
-        else if (userHasRankFilter && !userHasYearFilter) {
+        } else if (userHasRankFilter && !userHasYearFilter) {
             pubCount = Math.round(rankSum / 1.5);
             pubCount = Math.min(pubCount, yearSumAll);
-        }
-        // (C) No rank filter, but year filter => use only yearSumInRange
-        else if (!userHasRankFilter && userHasYearFilter) {
+        } else if (!userHasRankFilter && userHasYearFilter) {
             pubCount = yearSumInRange;
-        }
-        // (D) Rank filter AND year filter => consider everything, then /2
-        else {
+        } else {
             pubCount = Math.round((rankSum + yearSumInRange) / 2);
         }
 
@@ -303,20 +272,115 @@ function renderGraph(conferenceRank, journalRank) {
     console.log("Initialized zoom layer.");
 
     // ----------------------------------------------------------------------
-    // 1. Determine dynamic link distance
+    // 1. Build the link data and link elements
     // ----------------------------------------------------------------------
-    const totalNodes = graphData.nodes.length;
+    // Only render links with pub_count > 0
+    let linkData = graphData.links.filter((l) => l.pub_count && l.pub_count > 0);
+
+    // Start with all nodes (this may be further filtered below).
+    let nodeData = graphData.nodes.filter((n) => true);
+
+    const linksCheckbox = document.getElementById('links-checkbox');
+
+    // If the user wants to strictly filter out links that do NOT have the specified
+    // conf/journal rank, filter out those links directly.
+    if (linksCheckbox.checked) {
+        if (conferenceRank && conferenceRank.trim() !== "") {
+            console.log("FILT 3");
+            linkData = linkData.filter((l) => typeof l[conferenceRank] === "number" && l[conferenceRank] > 0);
+        }
+        if (journalRank && journalRank.trim() !== "") {
+            console.log("FILT 4");
+            linkData = linkData.filter((l) => typeof l[journalRank] === "number" && l[journalRank] > 0);
+        }
+    } else {
+        // If we're not filtering links strictly, we can filter nodes by the requested rank
+        // (and later only keep links relevant to those nodes).
+        if (conferenceRank && conferenceRank.trim() !== "") {
+            console.log("FILT 1");
+            nodeData = nodeData.filter((n) => n['freq_conf_rank'] === conferenceRank);
+        }
+        if (journalRank && journalRank.trim() !== "") {
+            console.log("FILT 2");
+            nodeData = nodeData.filter((n) => n['freq_journal_rank'] === journalRank);
+        }
+    }
+
+    // Optional "default" link filter if no rank is chosen and the linkData is large
+    if (journalRank === "" && conferenceRank === "" && linkData.length >= 300) {
+        linkData = linkData.filter(
+            (l) =>
+                ["A*", "A"].includes(l["avg_conf_rank"]) &&
+                ["Q1", "Q2"].includes(l["avg_journal_rank"])
+        );
+    }
+
+    // ----------------------------------------------------------------------
+    // NEW STEP A: Filter out links that do not connect the final node set
+    // (i.e., if a node was removed by a rank filter, remove the link).
+    // ----------------------------------------------------------------------
+    // 1) Create a set of *initially* filtered node IDs
+    const nodeIds = new Set(nodeData.map((node) => node.id));
+
+    // 2) Filter out links whose source or target isn't in that set
+    linkData = linkData.filter((link) => {
+        const sourceId = typeof link.source === "object" ? link.source.id : link.source;
+        const targetId = typeof link.target === "object" ? link.target.id : link.target;
+        return nodeIds.has(sourceId) && nodeIds.has(targetId);
+    });
+
+    // ----------------------------------------------------------------------
+    // NEW STEP B: Now that links have changed, we also remove any nodes that
+    // are no longer referenced by any link (in case some nodes ended up with
+    // no links after the link filter).
+    // ----------------------------------------------------------------------
+    const linkedNodeIds = new Set();
+    linkData.forEach((link) => {
+        const sourceId = typeof link.source === "object" ? link.source.id : link.source;
+        const targetId = typeof link.target === "object" ? link.target.id : link.target;
+        linkedNodeIds.add(sourceId);
+        linkedNodeIds.add(targetId);
+    });
+    // Filter the node list again (to only include linked nodes):
+    const filteredNodes = nodeData.filter((node) => linkedNodeIds.has(node.id));
+
+    // ----------------------------------------------------------------------
+    // NEW STEP C: If we have no nodes or no links at this point, alert & stop.
+    // ----------------------------------------------------------------------
+    if (filteredNodes.length === 0 || linkData.length === 0) {
+        alert("No result found for selected filters");
+        return; // Stop rendering
+    }
+
+    // ----------------------------------------------------------------------
+    // 2. Render the links
+    // ----------------------------------------------------------------------
+    const link = zoomLayer
+        .append("g")
+        .selectAll("line")
+        .data(linkData)
+        .enter()
+        .append("line")
+        .attr("stroke", (d) => getLinkColor(d, conferenceRank, journalRank, linksCheckbox.checked))
+        .attr("stroke-width", (d) => LINK_WIDTH_SCALE(d.pub_count));
+
+    console.log("Rendered links:", linkData);
+
+    // ----------------------------------------------------------------------
+    // 3. Determine dynamic link distance
+    // ----------------------------------------------------------------------
+    const totalNodes = filteredNodes.length;
     const dynamicLinkDistance = 200 + totalNodes * FORCE_SETTINGS.linkDistanceScale;
     console.log("Calculated dynamic link distance:", dynamicLinkDistance);
 
     // ----------------------------------------------------------------------
-    // 2. Create D3 simulation
+    // 4. Create D3 simulation
     // ----------------------------------------------------------------------
     const simulation = d3
-        .forceSimulation(graphData.nodes)
+        .forceSimulation(filteredNodes)
         .force(
             "link",
-            d3.forceLink(graphData.links)
+            d3.forceLink(linkData)
                 .id((d) => d.id)
                 .distance(dynamicLinkDistance)
                 .strength(FORCE_SETTINGS.linkStrength)
@@ -327,7 +391,7 @@ function renderGraph(conferenceRank, journalRank) {
         .alphaDecay(0.05);
 
     // ----------------------------------------------------------------------
-    // 3. granular zoom
+    // 5. granular zoom
     // ----------------------------------------------------------------------
     zoomBehavior = d3.zoom()
         .scaleExtent([0.05, 10])
@@ -337,43 +401,12 @@ function renderGraph(conferenceRank, journalRank) {
     svg.call(zoomBehavior);
 
     // ----------------------------------------------------------------------
-    // 4. Build the link data and link elements
-    // ----------------------------------------------------------------------
-    // Only render links with pub_count > 0
-    let linkData = graphData.links.filter((l) => l.pub_count && l.pub_count > 0);
-
-    // If the user wants to strictly filter out links that do NOT have the specified
-    // conf/journal rank, we can do so here. This is optional depending on your needs.
-    if (conferenceRank && conferenceRank.trim() !== "") {
-        linkData = linkData.filter((l) => typeof l[conferenceRank] === "number" && l[conferenceRank] > 0);
-    }
-    if (journalRank && journalRank.trim() !== "") {
-        linkData = linkData.filter((l) => typeof l[journalRank] === "number" && l[journalRank] > 0);
-    }
-
-    // By default hide unranked links if no filters are defined and graph size is big
-    if (journalRank === "" && conferenceRank === "" && linkData.length >= 300){
-        linkData = linkData.filter((l) => ["A*","A"].includes(l["avg_conf_rank"]) && ["Q1", "Q2"].includes(l["avg_journal_rank"]));
-    }
-
-    const link = zoomLayer
-        .append("g")
-        .selectAll("line")
-        .data(linkData)
-        .enter()
-        .append("line")
-        .attr("stroke", (d) => getLinkColor(d, conferenceRank, journalRank))
-        .attr("stroke-width", (d) => LINK_WIDTH_SCALE(d.pub_count));
-
-    console.log("Rendered links:", linkData);
-
-    // ----------------------------------------------------------------------
-    // 5. Build the node data and node elements
+    // 6. Build the node data and node elements
     // ----------------------------------------------------------------------
     const node = zoomLayer
         .append("g")
         .selectAll("g")
-        .data(graphData.nodes)
+        .data(filteredNodes)
         .enter()
         .append("g")
         .call(
@@ -382,13 +415,12 @@ function renderGraph(conferenceRank, journalRank) {
                 .on("drag", dragged)
                 .on("end", dragEnded)
         )
-        // (3) Add a right-click contextmenu event to show the popup
         .on("contextmenu", (event, d) => {
             event.preventDefault();
             showNodePopup(d, event.pageX, event.pageY);
         });
 
-    console.log("Rendered nodes:", graphData.nodes);
+    console.log("Rendered nodes:", filteredNodes);
 
     // Circle mask for avatar
     node.append("clipPath")
@@ -421,7 +453,7 @@ function renderGraph(conferenceRank, journalRank) {
         .text((d) => d.label);
 
     // ----------------------------------------------------------------------
-    // 6. Attach "tick" handler (we simply translate nodes)
+    // 7. Attach "tick" handler
     // ----------------------------------------------------------------------
     simulation.on("tick", () => {
         link
@@ -434,11 +466,12 @@ function renderGraph(conferenceRank, journalRank) {
     });
 
     // ----------------------------------------------------------------------
-    // 7. Disable physics once the simulation stabilizes
+    // 8. Disable physics once the simulation stabilizes
     // ----------------------------------------------------------------------
     setTimeout(() => {
         console.log(`Stopping simulation after ${FORCE_SETTINGS.simulationMaxRuntime} ms...`);
-        simulation.force("link", null)
+        simulation
+            .force("link", null)
             .force("charge", null)
             .force("center", null)
             .force("collide", null);
@@ -455,7 +488,6 @@ function renderGraph(conferenceRank, journalRank) {
     }
 
     function dragged(event, d) {
-        // Fix position to the current mouse coordinates
         d.fx = event.x;
         d.fy = event.y;
     }
@@ -468,6 +500,7 @@ function renderGraph(conferenceRank, journalRank) {
     }
 }
 
+
 // ======================================================
 // Show Node Popup on right-click
 // ======================================================
@@ -475,7 +508,7 @@ function showNodePopup(nodeData, x, y) {
     const popup = document.getElementById("node-popup");
     const popupImage = document.getElementById("popup-image");
 
-    popupImage.src = nodeData.image || "";
+    popupImage.src = nodeData.image.toString().startsWith("http") ? nodeData.image : "/static/resource/avatar.png";
 
     const tableBody = document.getElementById('popup-table-body');
     tableBody.innerHTML = '';
@@ -511,8 +544,8 @@ function showNodePopup(nodeData, x, y) {
             addPopupRow(tableBody, "I-10 Index", author_data["i10Index"])
             addPopupRow(tableBody, "Cited by", author_data["citesTotal"])
             addPopupRow(tableBody, "Publications Found", author_data["pubTotal"])
-            addPopupRow(tableBody, "Avg. Conference Rank", author_data["avg_conference_rank"])
-            addPopupRow(tableBody, "Avg. Journal Rank", author_data["avg_journal_rank"])
+            addPopupRow(tableBody, "Freq. Conference Rank", author_data["avg_conference_rank"])
+            addPopupRow(tableBody, "Freq. Journal Rank", author_data["avg_journal_rank"])
 
             console.log("details for: " + nodeData.label + " - " + author_data)
             popup.style.display = "block";
@@ -585,7 +618,7 @@ document.getElementById("zoom-out-btn").addEventListener("click", () => {
 // ======================================================
 // Handles Graph API call
 // ======================================================
-function fetchGraphData(selectedNodeId, depth, conferenceRank, journalRank, fromYear, toYear, loadingPopup, timerInterval, render = true){
+function fetchGraphData(selectedNodeId, depth, conferenceRank, journalRank, fromYear, toYear, loadingPopup, timerInterval, render = true, init = false){
     fetch("/generate-graph", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -616,6 +649,11 @@ function fetchGraphData(selectedNodeId, depth, conferenceRank, journalRank, from
             if (loadingPopup != null){
                 loadingPopup.style.display = "none";
                 clearInterval(timerInterval); // Stop the timer
+            }
+            if (init){
+                console.log("Deleting loading on init");
+                const loadingPopup = document.getElementById("loading-popup");
+                loadingPopup.style.display = "none";
             }
         });
 }
@@ -670,78 +708,48 @@ document.getElementById("graph-form").addEventListener("submit", function (event
     }
 });
 
+document.addEventListener("DOMContentLoaded", () => {
+    const checkbox = document.getElementById("links-checkbox");
+    const label = document.getElementById("filter-label");
+
+    checkbox.addEventListener("change", () => {
+        if (checkbox.checked) {
+            label.textContent = "Filter Ranks By: Links";
+        } else {
+            label.textContent = "Filter Ranks By: Nodes";
+        }
+    });
+});
+
 // ======================================================
 // Initialize dropdown and basic graph on page load
 // ======================================================
-async function initGraph() {
-    const nodeLabelDropdown = master_document.getElementById("node-label");
-    const loadingPopup = document.getElementById("loading-popup");
-    const loadingTimeSpan = document.getElementById("loading-time");
+function initGraph(timerInterval, init_ids) {
+    console.log("Initializing graph for all options in dropdown...");
 
-    console.log("body: " + master_document.body.innerHTML);
-    let elapsedTime = 0;
-    let timerInterval;
+    try {
+        // Make a single request with all option values concatenated
+        fetchGraphData(init_ids, 1, "", "", "", "", null, null, false);
+        console.log("Graph initialization request sent for all options.");
+    } catch (error) {
+        console.error("Error during graph initialization:", error);
+    } finally {
+        // generate graph data for the last id, just for rendering, it won't get generated twice and query is small
 
-    if (!nodeLabelDropdown) {
-        console.error("Node label dropdown element not found!");
-    } else {
-        console.log("Initializing graph for all options in dropdown...");
-
-        // Show the loading popup and start the timer
-        loadingPopup.style.display = "block";
-        elapsedTime = 0;
-        loadingTimeSpan.textContent = elapsedTime.toString();
-        timerInterval = setInterval(() => {
-            elapsedTime++;
-            loadingTimeSpan.textContent = elapsedTime.toString();
+        const lastOptionValue = init_ids.split(',').slice(-1)[0]
+        setTimeout(async () => {
+            fetchGraphData(lastOptionValue, 1, null, null, null, null, null, null, true, true);
+            clearInterval(timerInterval)
         }, 1000);
-
-        const options = Array.from(nodeLabelDropdown.options);
-        var last_exec = null;
-        const promises = options.map(option => {
-                fetchGraphData(option.value, 1, "", "", "", "", null, null, false);
-                last_exec = option.value;
-            }
-        );
-
-        try {
-            await Promise.all(promises);
-            console.log("Graph initialization complete for all options.");
-        } catch (error) {
-            console.error("Error during graph initialization:", error);
-        } finally {
-            // Hide the loading popup and clear the timer
-            clearInterval(timerInterval);
-            loadingPopup.style.display = "none";
-            fetchGraphData(last_exec, 1, null, null, null, null, null, null)
-        }
     }
 }
 
-window.addEventListener("load", function () {
+
+window.onload = function () {
     console.log("Initializing dropdown on page load...");
-    const urlParams = new URLSearchParams(window.location.search);
 
-    const valueParam = urlParams.get('value');
+    let init_ids = startIds.join(',')
 
-    const startIds = valueParam ? valueParam.split(',') : [];
-
-    const nodeLabelDropdown = master_document.getElementById('node-label');
-    for (let i = 0; i < startIds.length; i++){
-        if (!nodeLabelDropdown.querySelector(`option[value="${startIds[i]}"]`)) {
-            const newOption = master_document.createElement("option");
-            newOption.value = startIds[i];
-            newOption.textContent = startLabels[i];
-            nodeLabelDropdown.appendChild(newOption);
-            console.log("added: " + startLabels[i])
-        }
-    }
-
-    sortOptions();
-
-    // Turn the <select> into a Select2 dropdown
-    // If you’re in a multi-frame environment, you might need to target `$(master_document).find('#node-label')`.
-    // But for simplicity, let’s assume standard usage:
     $(document).ready(function() {
         $('#node-label').select2({
             placeholder: 'Select a label...',
@@ -749,11 +757,29 @@ window.addEventListener("load", function () {
         });
     });
 
-    (async () => {
-        await initGraph();
+    setTimeout(async () => {
+        const loadingTimeSpan = document.getElementById("loading-time");
+        const loadingPopup = document.getElementById("loading-popup");
+        console.log("Checking loadingPopup in delayed initGraph:", loadingPopup);
+        if (!loadingPopup) {
+            console.error("loadingPopup not found!");
+        } else {
+            console.log("Found loadingPopup:", loadingPopup.innerHTML);
+        }
+
+        // Show the loading popup and start the timer
+        loadingPopup.style.display = "block";
+        let elapsedTime = 0;
+        loadingTimeSpan.textContent = elapsedTime.toString();
+        let timerInterval = setInterval(() => {
+            elapsedTime++;
+            loadingTimeSpan.textContent = elapsedTime.toString();
+        }, 1000);
+
+        initGraph(timerInterval, init_ids);
         console.log("Graph initialization script has finished.");
-    })();
-});
+    }, 500);
+};
 
 
 

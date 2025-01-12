@@ -91,19 +91,47 @@
 </form>
 
 <h6 style="color: gray; font-style: italic;">
-    Right click a node to show an Author's details - If graph renders badly, click the "Generate" button again
+    Right click a node to show an Author's details - If graph renders badly, click the "Generate" button again. For large result sets, not all connections are shown - Consider applying filters.
 </h6>
 <h6 style="color: gray; font-style: italic;">
-    For large result sets, not all connections are shown - Consider applying filters
+    Thicker lines represent a higher amount of data available.
+    The color represents the quality of the Conference/Journal(s) shared.
+    Legend:
+    <span class="legend-item">
+        <span class="color-box dodgerblue"></span> A*/Q1
+    </span>
+    <span class="legend-item">
+        <span class="color-box forestgreen"></span> A/Q2
+    </span>
+    <span class="legend-item">
+        <span class="color-box gold"></span> B/Q3
+    </span>
+    <span class="legend-item">
+        <span class="color-box darkorange"></span> C/Q4
+    </span>
+    <span class="legend-item">
+        <span class="color-box red"></span> Unranked
+    </span>
 </h6>
 
-<div id="graph-container" style="margin-top: 20px;">
+<div id="graph-container" style="margin-top: 20px; background-color: whitesmoke">
+    <div class="filter_type_graph">
+        <label for="links-checkbox" id="filter-label">Filter Graph By: Nodes</label>
+        <input type="checkbox" id="links-checkbox" name="links-checkbox" style="display: none;" checked>
+    </div>
+
     <div class="zoom-buttons">
         <button id="zoom-in-btn">+</button>
         <button id="zoom-out-btn">-</button>
     </div>
+
     <svg width="fit-content" height="fit-content"></svg>
 </div>
+
+<script>
+    var startIds = "{{ start_id }}".split(',');
+    var startLabels = "{{ start_label }}".split(',');
+</script>
 
 
 

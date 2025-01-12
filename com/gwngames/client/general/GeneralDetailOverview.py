@@ -2,9 +2,8 @@ from quart import render_template
 
 from com.gwngames.server.query.QueryBuilder import QueryBuilder
 
-
 class GeneralDetailOverview:
-    def __init__(self, query_builder: QueryBuilder, title_field, description_field, image_field=None):
+    def __init__(self, query_builder: QueryBuilder, title_field, description_field, image_field=None, url_fields=None):
         """
         Initialize the DetailedDataViewer.
 
@@ -12,30 +11,28 @@ class GeneralDetailOverview:
         :param title_field: Field name for the title.
         :param description_field: Field name for the description.
         :param image_field: (Optional) Field name for the image URL.
+        :param url_fields: (Optional) List of field names that contain URLs.
         """
         self.query_builder = query_builder
         self.title_field = title_field
         self.description_field = description_field
         self.image_field = image_field
+        self.url_fields = url_fields or []
         self.row_methods = []
 
     def add_row_method(self, label, endpoint_name, column_name="id"):
         """
         Add a method to be triggered by a link in the detail view.
-
-        :param label: The label of the button/link.
-        :param endpoint_name: The Flask endpoint to call when the link is clicked.
-        :param column_name: The column name of the button/link that will be used.
         """
-        self.row_methods.append({"label": label, "endpoint": endpoint_name,
-            "column_name": column_name})
-
+        self.row_methods.append({
+            "label": label,
+            "endpoint": endpoint_name,
+            "column_name": column_name
+        })
 
     async def render(self):
         """
         Render the data viewer component with the configured query.
-
-        :return: Rendered HTML for the detailed data viewer.
         """
         # Execute the query to fetch data
         rows = await self.query_builder.execute()
@@ -51,14 +48,21 @@ class GeneralDetailOverview:
         description = data.get(self.description_field)
 
         # Prepare remaining fields for the table
-        details = {k: v for k, v in data.items() if k not in [self.title_field, self.description_field, self.image_field]}
+        details = {
+            k: v for k, v in data.items()
+            if k not in [self.title_field, self.description_field, self.image_field]
+        }
 
         return await render_template(
             "generic_detail_overview.html",
             image_url=image_url,
             title=title,
             description=description,
+            is_description_url=self.description_field in self.url_fields,
             details=details,
             data=data,
-            row_methods=self.row_methods
+            row_methods=self.row_methods,
+            # Pass the url_fields so the template knows which columns are URLs
+            url_fields=self.url_fields
         )
+

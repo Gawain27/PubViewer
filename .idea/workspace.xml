@@ -5,14 +5,23 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="db80d762-0fca-42fc-a111-806da2eacda9" name="Changes" comment="revised foreign keys">
-      <change afterPath="$PROJECT_DIR$/deploy.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/PubViewer.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/PubViewer.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/static/css/app.css" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/templates/about.html" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/templates/homepage.html" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app.py" beforeDir="false" afterPath="$PROJECT_DIR$/app.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/com/gwngames/client/general/GeneralDetailOverview.py" beforeDir="false" afterPath="$PROJECT_DIR$/com/gwngames/client/general/GeneralDetailOverview.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/com/gwngames/server/entity/base/Author.py" beforeDir="false" afterPath="$PROJECT_DIR$/com/gwngames/server/entity/base/Author.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/com/gwngames/client/general/GeneralTableOverview.py" beforeDir="false" afterPath="$PROJECT_DIR$/com/gwngames/client/general/GeneralTableOverview.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/com/gwngames/server/query/QueryBuilder.py" beforeDir="false" afterPath="$PROJECT_DIR$/com/gwngames/server/query/QueryBuilder.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/com/gwngames/server/query/queries/AuthorQuery.py" beforeDir="false" afterPath="$PROJECT_DIR$/com/gwngames/server/query/queries/AuthorQuery.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/com/gwngames/server/query/queries/ConferenceQuery.py" beforeDir="false" afterPath="$PROJECT_DIR$/com/gwngames/server/query/queries/ConferenceQuery.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/com/gwngames/server/query/queries/JournalQuery.py" beforeDir="false" afterPath="$PROJECT_DIR$/com/gwngames/server/query/queries/JournalQuery.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/config.json" beforeDir="false" afterPath="$PROJECT_DIR$/config.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/static/js/graph.js" beforeDir="false" afterPath="$PROJECT_DIR$/static/js/graph.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/templates/general_table_overview.html" beforeDir="false" afterPath="$PROJECT_DIR$/templates/general_table_overview.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/templates/generic_detail_overview.html" beforeDir="false" afterPath="$PROJECT_DIR$/templates/generic_detail_overview.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/templates/graph_component.html" beforeDir="false" afterPath="$PROJECT_DIR$/templates/graph_component.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/templates/template.html" beforeDir="false" afterPath="$PROJECT_DIR$/templates/template.html" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -188,6 +197,8 @@
       <workItem from="1735645597939" duration="355000" />
       <workItem from="1735645965448" duration="793000" />
       <workItem from="1735646835301" duration="1297000" />
+      <workItem from="1736148467017" duration="83000" />
+      <workItem from="1736148558944" duration="21182000" />
     </task>
     <task id="LOCAL-00001" summary="Reworked impl">
       <option name="closed" value="true" />

@@ -1,0 +1,612 @@
+/*
+    Global Styles
+    --------------------------------------------------
+*/
+
+body {
+    font-family: 'Roboto', sans-serif;
+    line-height: 1.8;
+    background-color: #f8f9fa;
+    font-size: 16px;
+    margin: 0;
+    padding: 0;
+}
+
+/* Navbar Styling */
+.navbar {
+    /* Slightly darker navy with a subtle gradient for a fresher look */
+    background: linear-gradient(90deg, #003366 0%, #00224d 100%);
+}
+
+.navbar-brand,
+.nav-link {
+    color: #ffffff !important;
+    font-weight: 500;
+    font-size: 18px;
+    transition: color 0.3s ease;
+}
+
+.navbar-brand:hover,
+.nav-link:hover {
+    color: #00aaff !important;
+}
+
+/* Main Content Styling
+   Removed fixed widths so content can span the whole page.
+*/
+.content {
+    margin-top: 10px;
+    padding: 25px;
+}
+
+/* Add a subtle background to the content section to make it stand out */
+.content-body {
+    background-color: #ffffff;
+    border-radius: 8px;
+    padding: 25px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+/* Heading Style */
+h1 {
+    color: #003366;
+    font-weight: 700;
+    text-align: center;
+    margin-bottom: 30px;
+    font-size: 2rem;
+}
+
+/* Button Styling */
+.btn-container {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.btn-primary {
+    background-color: #003366;
+    border: none;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+.btn-primary:hover {
+    background-color: #00509e;
+    transform: scale(1.05);
+}
+
+.btn-outline-primary {
+    margin: 10px;
+    color: #003366;
+    border-color: #003366;
+    transition: background-color 0.3s ease, color 0.3s ease, transform 0.2s ease;
+}
+
+.btn-outline-primary:hover {
+    background-color: #003366;
+    color: #ffffff;
+    transform: scale(1.05);
+}
+
+/* Card Styling */
+.card {
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+    margin-bottom: 20px;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.card:hover {
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+    transform: scale(1.02);
+}
+
+/* Link Styling */
+a {
+    text-decoration: none;
+    color: #003366;
+    transition: color 0.3s ease;
+}
+
+a:hover {
+    color: #00509e;
+}
+
+/* Table Styling */
+table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 15px;
+    background-color: #fff;
+    margin-top: 20px;
+    border-radius: 6px;
+    overflow: hidden;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+table th,
+table td {
+    padding: 10px;
+    text-align: left;
+    vertical-align: middle;
+}
+
+table th {
+    background-color: #003366;
+    color: #ffffff;
+    position: relative; /* To position sort arrows */
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    text-align: center; /* Align header text */
+}
+
+table th:hover {
+    background-color: #444444;
+}
+
+table th .sort-arrow {
+    display: inline-block;
+    margin-left: 8px;
+    font-size: 14px;
+    color: #ffffff;
+    transition: transform 0.3s ease;
+}
+
+table tr:nth-child(even) {
+    background-color: #f2f2f2;
+}
+
+table tr:hover {
+    background-color: #e9f4ff;
+    transition: background-color 0.3s ease;
+}
+
+.checkbox-column {
+    text-align: center;
+}
+
+/* Graph Styles */
+.node circle {
+    fill: #69b3a2;
+    stroke: #404040;
+    stroke-width: 1.5px;
+    transition: all 0.2s ease;
+}
+
+.node circle:hover {
+    stroke: #000000;
+    stroke-width: 2px;
+    cursor: pointer;
+}
+
+.node text {
+    font-size: 12px;
+    text-anchor: middle;
+}
+
+.link line {
+    stroke: #999;
+    stroke-width: 2px;
+}
+
+/* Graph Component Container */
+.graph-component {
+    width: 100%;
+    max-width: 1000px;
+    background: #ffffff;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    padding: 20px;
+    margin: 0 auto; /* Center it in the page if you like */
+}
+
+#graph-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+#graph-form label {
+    font-weight: bold;
+    color: #333;
+}
+
+#graph-form input {
+    padding: 10px;
+    font-size: 16px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+#graph-form .btn {
+    padding: 10px 20px;
+    font-size: 16px;
+    color: #ffffff;
+    background-color: #007bff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+#graph-form .btn:hover {
+    background-color: #0056b3;
+}
+
+#graph-container {
+    width: 100%;
+    height: 1000px;
+    overflow: hidden;
+    position: relative;
+    border: 2px solid #ccc;
+    border-radius: 8px;
+    background-color: #f9f9f9;
+}
+
+svg {
+    display: block;
+    margin: 0 auto;
+    width: 100%;
+    height: 100%;
+}
+
+circle {
+    fill: #99cbff;
+}
+
+text {
+    fill: #000;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.zoom-buttons {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: start;
+    gap: 5px;
+}
+
+.zoom-buttons button {
+    width: 40px;
+    height: 40px;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 2px;
+    padding: 0;
+    border: none;
+    border-radius: 8px;
+    background-color: #007BFF;
+    color: white;
+    cursor: pointer;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: background-color 0.3s, transform 0.2s;
+}
+
+.zoom-buttons button:hover {
+    background-color: #0056b3;
+    transform: scale(1.1);
+}
+
+.zoom-buttons button:active {
+    background-color: #003f7f;
+    transform: scale(0.95);
+}
+
+/* Loading Popup */
+#loading-popup {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 20px;
+    border-radius: 10px;
+    z-index: 1000;
+    text-align: center;
+    font-size: 18px;
+    display: block;
+}
+
+.spinner {
+    margin: 0 auto 10px auto;
+    width: 50px;
+    height: 50px;
+    border: 6px solid rgba(255, 255, 255, 0.2);
+    border-top: 6px solid white;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+/* Node Popup */
+.node-popup {
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    display: none;
+    z-index: 9999;
+    background-color: #fff;
+    border: 1px solid #ccc;
+    border-radius: 10px;
+    padding: 20px;
+    min-width: 300px;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+    animation: fadeIn 0.3s ease-in-out;
+    overflow: auto;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* Popup Header (Close Button area) */
+.popup-header {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 10px;
+}
+
+.close-button {
+    border: none;
+    background: transparent;
+    font-size: 18px;
+    font-weight: bold;
+    cursor: pointer;
+    outline: none;
+    color: #333;
+}
+
+.close-button:hover {
+    color: red;
+}
+
+.popup-content {
+    margin-top: 10px;
+}
+
+#popup-image {
+    max-width: 150px;
+    max-height: 150px;
+    display: block;
+    margin: 0 auto 15px auto;
+    border: 2px solid #ccc;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Popup Table Styles */
+.popup-table {
+    width: auto;
+    max-width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+    font-size: 14px;
+    color: #333;
+}
+
+.popup-table th,
+.popup-table td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+    white-space: nowrap;
+}
+
+.popup-table th {
+    background-color: #f4f4f4;
+    font-weight: bold;
+    color: black;
+}
+
+.popup-table tr:nth-child(even) {
+    background-color: #f9f9f9;
+}
+
+/* Select2 Container */
+.select2-container {
+    width: 100% !important;
+    font-size: 16px;
+    font-family: 'Roboto', sans-serif;
+}
+
+/* Single Selection */
+.select2-container--default .select2-selection--single {
+    background-color: #fff;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    height: 44px;
+    transition: border-color 0.3s;
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+}
+
+.select2-container--default .select2-selection--single .select2-selection__rendered {
+    color: #333;
+    line-height: normal;
+    padding: 0 8px;
+}
+
+.select2-container--default .select2-selection--single .select2-selection__placeholder {
+    color: #aaa;
+}
+
+.select2-container--default .select2-selection--single .select2-selection__arrow {
+    height: 100%;
+    right: 8px;
+    width: 16px;
+}
+
+/* Hover, focus states */
+.select2-container--default .select2-selection--single:hover,
+.select2-container--default .select2-selection--single:focus,
+.select2-container--default.select2-container--focus .select2-selection--single {
+    border-color: #00509e;
+}
+
+/* Dropdown (results) */
+.select2-container--default .select2-dropdown {
+    background-color: #ffffff;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    margin-top: 4px;
+}
+
+/* Dropdown Search */
+.select2-container--default .select2-search--dropdown .select2-search__field {
+    width: 100% !important;
+    box-sizing: border-box;
+    padding: 8px;
+    font-size: 14px;
+    margin: 0;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+/* Results (list options) */
+.select2-container--default .select2-results__option {
+    color: #333;
+    padding: 8px 12px;
+    font-size: 15px;
+}
+
+/* Hovered or highlighted list option */
+.select2-container--default
+.select2-results__option--highlighted.select2-results__option--selectable {
+    background-color: #f2f2f2;
+    color: #003366;
+    cursor: pointer;
+}
+
+/* Disabled option */
+.select2-container--default .select2-results__option--disabled {
+    color: #aaa;
+    cursor: not-allowed;
+}
+
+/* Multiple selection tags */
+.select2-container--default .select2-selection--multiple .select2-selection__choice {
+    background-color: #e5e5e5;
+    border: none;
+    border-radius: 2px;
+    color: #333;
+    font-size: 14px;
+    padding: 2px 6px;
+}
+
+/* Remove X in multiple tags on hover */
+.select2-container--default .select2-selection--multiple .select2-selection__choice__remove {
+    color: #333;
+    font-weight: bold;
+    margin-right: 4px;
+    transition: color 0.3s;
+}
+
+.select2-container--default .select2-selection--multiple .select2-selection__choice__remove:hover {
+    color: red;
+}
+
+input[type="checkbox"].row-checkbox {
+    /* Remove the default checkbox styling */
+    appearance: none;
+    -webkit-appearance: none; /* For Safari */
+    -moz-appearance: none;    /* For older Firefox */
+
+    /* Create a custom box */
+    width: 20px;
+    height: 20px;
+    border: 2px solid #00509e;
+    border-radius: 4px;       /* Slightly rounded corners */
+    background-color: #fff;
+    cursor: pointer;
+    position: relative;
+    outline: none;
+    margin: 5px;
+    transition: background-color 0.2s;
+}
+
+input[type="checkbox"].row-checkbox:hover {
+    background-color: #f0f8ff; /* A light highlight on hover */
+}
+
+input[type="checkbox"].row-checkbox:checked {
+    background-color: #00509e; /* Fill the box when checked */
+}
+
+/* Draw the checkmark when checked */
+input[type="checkbox"].row-checkbox:checked::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 5px;
+    width: 5px;
+    height: 10px;
+    border: solid #ffffff;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+
+/* Graph filter checkbox */
+.filter_type_graph label {
+    display: inline-block;
+    padding: 10px 20px;
+    background-color: #007BFF;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    text-align: center;
+    transition: background-color 0.3s ease;
+}
+
+.filter_type_graph label:hover {
+    background-color: #0056b3;
+}
+
+.filter_type_graph input:checked + label {
+    background-color: #28a745;
+}
+
+/* Legend css */
+.legend-item {
+    display: inline-flex;
+    align-items: center;
+    margin-right: 15px;
+}
+.color-box {
+    width: 15px;
+    height: 15px;
+    margin-right: 5px;
+    display: inline-block;
+}
+.dodgerblue { background-color: #1E90FF; }
+.forestgreen { background-color: #228B22; }
+.gold { background-color: #FFD700; }
+.darkorange { background-color: #FF8C00; }
+.red { background-color: #FF4500; }
+

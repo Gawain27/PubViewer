@@ -19,56 +19,45 @@ class PublicationQuery:
         conference_query = QueryBuilder(session, Conference.__tablename__, "c")
         google_scholar_query = QueryBuilder(session, GoogleScholarPublication.__tablename__, "gsp")
         citation_query = QueryBuilder(session, GoogleScholarCitation.__tablename__, "gsc")
-        assoc_query = QueryBuilder(session, PublicationAuthor.__tablename__, "ass")
-        author_query = QueryBuilder(session, Author.__tablename__, "a")
 
         # Joins
         publication_query.join("LEFT", journal_query, "j", on_condition="j.id = p.journal_id")
         publication_query.join("LEFT", conference_query, "c", on_condition="c.id = p.conference_id")
         publication_query.join("LEFT", google_scholar_query, "gsp", on_condition="gsp.publication_key = p.id")
         publication_query.join("LEFT", citation_query, "gsc", on_condition="gsc.publication_id = gsp.id")
-        publication_query.join("LEFT", assoc_query, "ass", on_condition="ass.publication_id = p.id")
-        publication_query.join("LEFT", author_query, "a", on_condition="a.id = ass.author_id")
 
-        # Filter by title
         publication_query.and_condition("", "p.id = " + pub_id, custom=True)
 
-        # Select fields and aggregations
         publication_query.select(
             """
             p.id AS "Pub. ID",
-            p.title AS "Title",
+            to_camel_case(p.title) AS "Title",
             p.description AS "Description",
-            p.publication_year as Year,
-            p.publisher as Publisher,
+            CASE
+                WHEN p.publication_year < 1950 THEN '-'
+                ELSE p.publication_year || ''
+            END AS "Year",
+            p.publisher as "Publisher",
             p.url AS "Scholar URL",
-            STRING_AGG(DISTINCT a.name, ', ') AS Authors,
+            p.authors AS "Authors",
             CASE 
                 WHEN COUNT(j.id) > 0 THEN MODE() WITHIN GROUP (
                     ORDER BY COALESCE(NULLIF(REGEXP_REPLACE(j.sjr, '[^0-9.]', ''), ''), '0')
                 )
                 ELSE '0'
             END AS "Journal Score",
-            CASE 
-                WHEN COUNT(j.q_rank) > 0 THEN MODE() WITHIN GROUP (ORDER BY j.q_rank)
-                ELSE '-'
-            END AS "Journal Rank",
-            j.title AS "Journal",
+            CASE WHEN j.q_rank IS NULL THEN 'N/A' ELSE j.q_rank END AS "Journal Rank",
+            to_camel_case(j.title) AS "Journal",
             COALESCE(j.h_index, 0) AS "Journal H-Index",
             c.acronym as "Conference",
-            CASE 
-                WHEN COUNT(c.rank) > 0 THEN MODE() WITHIN GROUP (ORDER BY c.rank)
-                ELSE '-'
-            END AS "Conference Rank",
-            COALESCE(SUM(gsp.total_citations), 0) AS "Total Citations",
-            STRING_AGG(DISTINCT gsc.title, ', ') AS "Cited Titles"
+            CASE WHEN c.rank IS NULL THEN 'N/A' ELSE c.rank END AS "Conference Rank",
+            COALESCE(SUM(gsp.total_citations), 0) AS "Total Citations"
             """
         )
 
-        # Group and limit
         publication_query.group_by(
             "p.id", "p.title", "p.description", "p.publication_year", "p.publisher", "p.url",
-            "j.h_index", "c.year", "j.title", "c.acronym"
+            "j.h_index", "c.year", "j.title", "c.acronym, c.rank, j.q_rank"
         )
         publication_query.limit(1)
 
@@ -83,9 +72,6 @@ class PublicationQuery:
         journal_query = QueryBuilder(session, Journal.__tablename__, "j")
         conference_query = QueryBuilder(session, Conference.__tablename__, "c")
         google_scholar_query = QueryBuilder(session, GoogleScholarPublication.__tablename__, "gsp")
-        assoc_query = QueryBuilder(session, PublicationAuthor.__tablename__, "ass")
-        author_query = QueryBuilder(session, Author.__tablename__, "a")
-
 
         publication_query.join(
             "LEFT", journal_query, "j", on_condition="j.id = p.journal_id"
@@ -93,10 +79,6 @@ class PublicationQuery:
             "LEFT", conference_query, "c", on_condition="c.id = p.conference_id"
         ).join(
             "LEFT", google_scholar_query, "gsp", on_condition="gsp.publication_key = p.id"
-        ).join(
-            "LEFT", assoc_query, "ass", on_condition="ass.publication_id = p.id"
-        ).join(
-            "LEFT", author_query, "a", on_condition="a.id = ass.author_id"
         )
 
         publication_query.and_condition("",
@@ -107,30 +89,27 @@ class PublicationQuery:
 
         publication_query.select(
             """
-            DISTINCT p.id AS ID,
-            p.title AS Title,
-            p.publication_year as Year,
-            p.publisher as Publisher,
-            STRING_AGG(DISTINCT lower(a.name), ', ') AS Authors,
+            p.id AS "ID",
+            to_camel_case(p.title) AS "Title",
+            CASE
+                WHEN p.publication_year < 1950 THEN '-'
+                ELSE p.publication_year || ''
+            END as "Year",
+            p.publisher as "Publisher",
+            p.authors AS "Authors",
             CASE 
                 WHEN COUNT(j.id) > 0 THEN MODE() WITHIN GROUP (
                     ORDER BY COALESCE(NULLIF(REGEXP_REPLACE(j.sjr, '[^0-9.]', ''), ''), '0')
                 )
                 ELSE '0'
             END AS "Journal Score",
-            CASE 
-                WHEN COUNT(j.q_rank) > 0 THEN MODE() WITHIN GROUP (ORDER BY j.q_rank)
-                ELSE '-'
-            END AS "Journal Rank",
-            CASE 
-                WHEN COUNT(c.rank) > 0 THEN MODE() WITHIN GROUP (ORDER BY c.rank)
-                ELSE '-'
-            END AS "Conference Rank"
+            CASE WHEN j.q_rank IS NULL THEN 'N/A' ELSE j.q_rank END AS "Journal Rank",
+            CASE WHEN c.rank IS NULL THEN 'N/A' ELSE c.rank END AS "Conference Rank"
             """
         )
 
         publication_query.group_by(
-            "p.id", "p.title", "p.publication_year", "p.publisher"
+            "p.id", "p.title", "p.publication_year", "p.publisher, j.q_rank, c.rank"
         )
 
         return publication_query
@@ -149,7 +128,8 @@ class PublicationQuery:
             "LEFT", Conference.__tablename__, "c", "p.conference_id = c.id"
         )
         qb.and_condition("", "(j.q_rank IS NOT NULL OR c.rank IS NOT NULL)", custom=True)
-        qb.and_condition("", f"(pa1.author_id, pa2.author_id) IN ({pairs})", custom=True)
+        #qb.and_condition("", f"(pa1.author_id, pa2.author_id) IN ({pairs})", custom=True)
+        qb.join("INNER", f"(VALUES {pairs})", "pair(id1, id2)", on_condition="(pa1.author_id, pa2.author_id) = (pair.id1, pair.id2) AND pair.id1 < pair.id2")
         qb.select(
             """
             pa1.author_id AS aid1,
@@ -172,7 +152,8 @@ class PublicationQuery:
         )
         qb.and_condition("", "(p.journal_id IS NOT NULL OR p.conference_id IS NOT NULL)", custom=True)
         qb.and_condition("", "p.publication_year IS NOT NULL", custom=True)
-        qb.and_condition("",f"(pa1.author_id, pa2.author_id) IN ({pairs})", custom=True)
+        #qb.and_condition("",f"(pa1.author_id, pa2.author_id) IN ({pairs})", custom=True)
+        qb.join("INNER", f"(VALUES {pairs})", "pair(id1, id2)", on_condition="(pa1.author_id, pa2.author_id) = (pair.id1, pair.id2) AND pair.id1 < pair.id2")
         qb.select(
             """
             pa1.author_id AS aid1,
