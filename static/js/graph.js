@@ -93,52 +93,30 @@ function getLinkColor(link, selectedConfRank, selectedJournRank, isLinkFilter) {
 // ======================================================
 // Updates the dropdown labels with graph nodes
 // ======================================================
-function sortOptions() {
-    const select = master_document.getElementById('node-label');
-    const options = Array.from(select.options);
-    options.sort((a, b) => a.textContent.localeCompare(b.textContent));
-    select.innerHTML = '';
-    options.forEach(option => select.appendChild(option));
-}
 
-function updateNodeDropdown(selectedId) {
-    console.log("Updating node dropdown...");
-    const nodeLabelDropdown = master_document.getElementById("node-label");
-    if (!nodeLabelDropdown) {
-        console.error("Node label dropdown element not found!");
-        return;
+function updateNodeDropdown() {
+  console.log("Updating node dropdown...");
+  const nodeLabelDropdown = master_document.getElementById("node-label");
+  if (!nodeLabelDropdown) {
+    console.error("Node label dropdown element not found!");
+    return;
+  }
+
+  // Convert the dropdown’s current options to an Array for easy searching
+  const existingOptions = Array.from(nodeLabelDropdown.options);
+
+  // Add options that do not already exist in the dropdown
+  graphData.nodes.forEach(({ id, label }) => {
+    const alreadyExists = existingOptions.some(opt => opt.value === id);
+    if (!alreadyExists) {
+      const newOption = master_document.createElement("option");
+      newOption.value = id;
+      newOption.textContent = label;
+      nodeLabelDropdown.appendChild(newOption);
     }
+  });
 
-    let defaultOption;
-    if (selectedId == null) {
-        defaultOption = nodeLabelDropdown.querySelector("option[selected]");
-        console.log("Id selected is null, selecting default option");
-    } else {
-        const options = nodeLabelDropdown.options;
-        let found = false;
-        for (let i = 0; i < options.length; i++) {
-            if (selectedId.includes(options[i].value)) {
-                nodeLabelDropdown.selectedIndex = i;
-                found = true;
-                break;
-            }
-        }
-        defaultOption = nodeLabelDropdown.options[nodeLabelDropdown.selectedIndex];
-    }
-    console.log("Default option retained:", defaultOption?.outerHTML);
-
-    nodeLabelDropdown.innerHTML = defaultOption.outerHTML;
-
-    graphData.nodes.forEach(({ id, label }) => {
-        if (!nodeLabelDropdown.querySelector(`option[value="${id}"]`)) {
-            const newOption = master_document.createElement("option");
-            newOption.value = id;
-            newOption.textContent = label;
-            nodeLabelDropdown.appendChild(newOption);
-        }
-    });
-    sortOptions()
-    console.log("Dropdown update complete.");
+  console.log("Dropdown update complete.");
 }
 
 // ======================================================

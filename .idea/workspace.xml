@@ -5,23 +5,13 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="db80d762-0fca-42fc-a111-806da2eacda9" name="Changes" comment="revised foreign keys">
-      <change afterPath="$PROJECT_DIR$/static/css/app.css" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/templates/about.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/templates/homepage.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/PubViewer.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/PubViewer.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app.py" beforeDir="false" afterPath="$PROJECT_DIR$/app.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/com/gwngames/client/general/GeneralDetailOverview.py" beforeDir="false" afterPath="$PROJECT_DIR$/com/gwngames/client/general/GeneralDetailOverview.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/com/gwngames/client/general/GeneralTableOverview.py" beforeDir="false" afterPath="$PROJECT_DIR$/com/gwngames/client/general/GeneralTableOverview.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/com/gwngames/server/query/QueryBuilder.py" beforeDir="false" afterPath="$PROJECT_DIR$/com/gwngames/server/query/QueryBuilder.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/com/gwngames/server/query/queries/AuthorQuery.py" beforeDir="false" afterPath="$PROJECT_DIR$/com/gwngames/server/query/queries/AuthorQuery.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/com/gwngames/server/query/queries/ConferenceQuery.py" beforeDir="false" afterPath="$PROJECT_DIR$/com/gwngames/server/query/queries/ConferenceQuery.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/com/gwngames/server/query/queries/JournalQuery.py" beforeDir="false" afterPath="$PROJECT_DIR$/com/gwngames/server/query/queries/JournalQuery.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/config.json" beforeDir="false" afterPath="$PROJECT_DIR$/config.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/deploy.py" beforeDir="false" afterPath="$PROJECT_DIR$/deploy.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/static/js/graph.js" beforeDir="false" afterPath="$PROJECT_DIR$/static/js/graph.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/templates/general_table_overview.html" beforeDir="false" afterPath="$PROJECT_DIR$/templates/general_table_overview.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/templates/generic_detail_overview.html" beforeDir="false" afterPath="$PROJECT_DIR$/templates/generic_detail_overview.html" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/templates/graph_component.html" beforeDir="false" afterPath="$PROJECT_DIR$/templates/graph_component.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/templates/template.html" beforeDir="false" afterPath="$PROJECT_DIR$/templates/template.html" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -52,6 +42,21 @@
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;Gawain27&quot;
+  }
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/Gawain27/PubViewer.git&quot;,
+    &quot;accountId&quot;: &quot;8560c033-e019-4980-b4f4-081f3523a596&quot;
+  }
+}</component>
+  <component name="HighlightingSettingsPerFile">
+    <setting file="file://$PROJECT_DIR$/deploy.py" root0="FORCE_HIGHLIGHTING" />
+  </component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 3
 }</component>
@@ -61,31 +66,32 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;DefaultHtmlFileTemplate&quot;: &quot;HTML File&quot;,
-    &quot;Flask server.Flask (app.py).executor&quot;: &quot;Run&quot;,
-    &quot;Flask server.PubViewer.executor&quot;: &quot;Run&quot;,
-    &quot;Python.Conference.executor&quot;: &quot;Run&quot;,
-    &quot;Python.ConferenceParser.executor&quot;: &quot;Run&quot;,
-    &quot;Python.Journal.executor&quot;: &quot;Run&quot;,
-    &quot;Python.PubViewer.executor&quot;: &quot;Run&quot;,
-    &quot;Python.Publication.executor&quot;: &quot;Run&quot;,
-    &quot;Python.PublicationQuery.executor&quot;: &quot;Run&quot;,
-    &quot;Python.initialize_db.executor&quot;: &quot;Run&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
-    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
-    &quot;last_opened_file_path&quot;: &quot;/home/gwng/PycharmProjects/PubViewer&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "DefaultHtmlFileTemplate": "HTML File",
+    "Flask server.Flask (app.py).executor": "Run",
+    "Flask server.PubViewer.executor": "Run",
+    "Python.Conference.executor": "Run",
+    "Python.ConferenceParser.executor": "Run",
+    "Python.Journal.executor": "Run",
+    "Python.PubViewer.executor": "Run",
+    "Python.Publication.executor": "Run",
+    "Python.PublicationQuery.executor": "Run",
+    "Python.deploy.executor": "Run",
+    "Python.initialize_db.executor": "Run",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "git-widget-placeholder": "master",
+    "ignore.virus.scanning.warn.message": "true",
+    "last_opened_file_path": "/home/gwng/PycharmProjects/PubViewer",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "vue.rearranger.settings.migration": "true"
   }
-}</component>
+}]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$" />
@@ -97,7 +103,7 @@
       <recent name="C:\Users\gwn27\PycharmProjects\PubViewer\static\js" />
     </key>
   </component>
-  <component name="RunManager" selected="Flask server.PubViewer">
+  <component name="RunManager" selected="Python.deploy">
     <configuration name="PubViewer" type="PythonConfigurationType" factoryName="Python">
       <module name="PubViewer" />
       <option name="ENV_FILES" value="" />
@@ -107,13 +113,35 @@
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="SDK_NAME" value="Python 3.12 (PubViewer)" />
       <option name="WORKING_DIRECTORY" value="" />
       <option name="IS_MODULE_SDK" value="false" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
       <option name="SCRIPT_NAME" value="$PROJECT_DIR$/app.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="deploy" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="PubViewer" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/deploy.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -130,7 +158,6 @@
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
       <option name="SDK_HOME" value="" />
-      <option name="SDK_NAME" value="Python 3.13 (PubViewer)" />
       <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
       <option name="IS_MODULE_SDK" value="false" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
@@ -159,9 +186,11 @@
       <item itemvalue="Flask server.PubViewer" />
       <item itemvalue="Flask server.Flask (app.py)" />
       <item itemvalue="Python.PubViewer" />
+      <item itemvalue="Python.deploy" />
     </list>
     <recent_temporary>
       <list>
+        <item itemvalue="Python.deploy" />
         <item itemvalue="Flask server.Flask (app.py)" />
       </list>
     </recent_temporary>
@@ -199,6 +228,8 @@
       <workItem from="1735646835301" duration="1297000" />
       <workItem from="1736148467017" duration="83000" />
       <workItem from="1736148558944" duration="21182000" />
+      <workItem from="1736770773618" duration="630000" />
+      <workItem from="1736771463380" duration="1915000" />
     </task>
     <task id="LOCAL-00001" summary="Reworked impl">
       <option name="closed" value="true" />
@@ -385,13 +416,14 @@
     <option name="LAST_COMMIT_MESSAGE" value="" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/PubViewer$ConferenceParser.coverage" NAME="ConferenceParser Coverage Results" MODIFIED="1733683431027" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/com/gwngames/server/parser" />
-    <SUITE FILE_PATH="coverage/PubViewer$PublicationQuery.coverage" NAME="PublicationQuery Coverage Results" MODIFIED="1733684116587" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/com/gwngames/server/query/queries" />
-    <SUITE FILE_PATH="coverage/PubViewer$Flask__app_py_.coverage" NAME="Flask (app.py) Coverage Results" MODIFIED="1733746139912" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="" />
-    <SUITE FILE_PATH="coverage/PubViewer$Publication.coverage" NAME="Publication Coverage Results" MODIFIED="1733683681593" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/com/gwngames/server/entity/base" />
-    <SUITE FILE_PATH="coverage/PubViewer$PubViewer.coverage" NAME="PubViewer Coverage Results" MODIFIED="1734552192385" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="" />
     <SUITE FILE_PATH="coverage/PubViewer$initialize_db.coverage" NAME="initialize_db Coverage Results" MODIFIED="1734030146524" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/com/gwngames/script" />
+    <SUITE FILE_PATH="coverage/PubViewer$Publication.coverage" NAME="Publication Coverage Results" MODIFIED="1733683681593" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/com/gwngames/server/entity/base" />
     <SUITE FILE_PATH="coverage/PubViewer$Journal.coverage" NAME="Journal Coverage Results" MODIFIED="1733683702699" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/com/gwngames/server/entity/base" />
     <SUITE FILE_PATH="coverage/PubViewer$Conference.coverage" NAME="Conference Coverage Results" MODIFIED="1733683783514" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/com/gwngames/server/entity/base" />
+    <SUITE FILE_PATH="coverage/PubViewer$deploy.coverage" NAME="deploy Coverage Results" MODIFIED="1736772640797" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/PubViewer$PubViewer.coverage" NAME="PubViewer Coverage Results" MODIFIED="1734552192385" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="" />
+    <SUITE FILE_PATH="coverage/PubViewer$ConferenceParser.coverage" NAME="ConferenceParser Coverage Results" MODIFIED="1733683431027" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/com/gwngames/server/parser" />
+    <SUITE FILE_PATH="coverage/PubViewer$Flask__app_py_.coverage" NAME="Flask (app.py) Coverage Results" MODIFIED="1733746139912" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="" />
+    <SUITE FILE_PATH="coverage/PubViewer$PublicationQuery.coverage" NAME="PublicationQuery Coverage Results" MODIFIED="1733684116587" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/com/gwngames/server/query/queries" />
   </component>
 </project>

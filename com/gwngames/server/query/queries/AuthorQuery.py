@@ -76,11 +76,18 @@ class AuthorQuery:
             END AS "Frequent Journal Rank",
 
             CASE 
-                WHEN COUNT(j.sjr) > 0 THEN AVG(
+                WHEN COUNT(j.sjr) > 0 THEN ROUND(
                     CAST(
-                        COALESCE(NULLIF(REGEXP_REPLACE(j.sjr, '[^0-9.]', ''), ''), '0') AS FLOAT
-                    )
-                ) * 10
+                        AVG(
+                            CAST(
+                                COALESCE(
+                                    NULLIF(REGEXP_REPLACE(j.sjr, '[^0-9.]', ''), ''), 
+                                    '0'
+                                ) AS FLOAT
+                            )
+                        ) * 10 AS NUMERIC
+                    ), 2
+                )
                 ELSE 0
             END AS "Avg. SJR Score",
             (select sum(tot) from(
@@ -179,14 +186,18 @@ class AuthorQuery:
                 pa.author_id,
                 CASE 
                     WHEN COUNT(j.sjr) > 0 THEN 
-                        AVG(
-                          CAST(
-                            COALESCE(
-                              NULLIF(REGEXP_REPLACE(j.sjr, '[^0-9.]', ''), ''), 
-                              '0'
-                            ) AS FLOAT
-                          )
-                        ) * 10
+                        ROUND(
+                            CAST(
+                                AVG(
+                                    CAST(
+                                        COALESCE(
+                                            NULLIF(REGEXP_REPLACE(j.sjr, '[^0-9.]', ''), ''), 
+                                            '0'
+                                        ) AS FLOAT
+                                    )
+                                ) * 10 AS NUMERIC
+                            ), 2
+                        )
                     ELSE 0
                 END AS avg_sjr_score
             """)

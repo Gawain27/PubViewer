@@ -5,7 +5,7 @@ import threading
 import time
 import schedule
 import traceback
-from collections import defaultdict
+from collections import defaultdict, deque
 
 from psycopg.rows import dict_row
 # psycopg3 async usage
@@ -748,11 +748,7 @@ async def generate_graph():
 
             start_depth += 1
 
-        # ---------------------------
-        # 2) Minimal node info
-        # ---------------------------
-
-        # Ensure starting authors are in the graph
+        # 1) Minimal node info (unchanged)
         for author in sql_authors:
             if author["id"] not in nodes:
                 nodes[author["id"]] = {
@@ -761,30 +757,45 @@ async def generate_graph():
                     "image": author["image_url"],
                 }
 
-        # Build edges, if any
+        # ---------------------------------------------------
+        # 1a) Build an adjacency list instead of direct links
+        # ---------------------------------------------------
+        # Also keep a dictionary to remember the (s_id, e_id)-level data for later
+        adj_list = defaultdict(list)
+
+        # We'll store all edge data in a dictionary keyed by a frozenset or sorted tuple,
+        # since the edges are undirected. We'll retrieve it later to build links.
+        edge_data_map = {}
         for (s_id, s_label, s_img, e_id, e_label, e_img) in edges:
+            # Add adjacency (undirected)
+            adj_list[s_id].append(e_id)
+            adj_list[e_id].append(s_id)
+
+            # If a node is missing from 'nodes', add minimal info
             if s_id not in nodes:
                 nodes[s_id] = {"id": s_id, "label": s_label, "image": s_img or ""}
             if e_id not in nodes:
                 nodes[e_id] = {"id": e_id, "label": e_label, "image": e_img or ""}
 
-        # ---------------------------
-        # 3) Fetch publication info (ranks, years) in N cores sub-batches
-        # ---------------------------
-        unique_pairs = set()
-        for (s_id, _, _, e_id, _, _) in edges:
-            pair = tuple(sorted((s_id, e_id)))
-            unique_pairs.add(pair)
+            # We'll use a sorted tuple as the key, e.g. (min, max)
+            pair_key = tuple(sorted((s_id, e_id)))
+            edge_data_map[pair_key] = (s_id, s_label, s_img, e_id, e_label, e_img)
+
+        # ------------------------------------------
+        # 2) Fetch publication info (ranks, years)
+        #    as in your original code
+        # ------------------------------------------
+        unique_pairs = set(tuple(sorted((s_id, e_id))) for (s_id, _, _, e_id, _, _) in edges)
 
         pair_to_ranks_freq = {}
         pair_to_years_freq = {}
-        pairs_list = list(unique_pairs)
 
+        pairs_list = list(unique_pairs)
         if pairs_list:
             chunk_size = max_tuple_per_query
             tasks = []
             for i in range(0, len(pairs_list), chunk_size):
-                sub_batch = pairs_list[i : i + chunk_size]
+                sub_batch = pairs_list[i: i + chunk_size]
                 tasks.append(asyncio.create_task(fetch_pub_info_subbatch(sub_batch)))
             results = await asyncio.gather(*tasks)
 
@@ -795,64 +806,98 @@ async def generate_graph():
                 for p, y_map in years_dict.items():
                     pair_to_years_freq[p] = y_map
 
-        # ---------------------------
-        # 4) Build links with publication data
-        # ---------------------------
+        # ------------------------------------------
+        # 3) Build "tree" links from sql_authors
+        # ------------------------------------------
         links = []
-        for (s_id, s_label, s_img, e_id, e_label, e_img) in edges:
-            pair_key = tuple(sorted((s_id, e_id)))
-            rank_counts = pair_to_ranks_freq.get(pair_key, {})
-            years_map = pair_to_years_freq.get(pair_key, {})
+        discovered = set()
+        queue = deque()
 
-            conf_freq = {}
-            jour_freq = {}
-            unranked = 0
-            for rank_str, cnt in rank_counts.items():
-                if rank_str in ["A*", "A", "B", "C"]:
-                    conf_freq[rank_str] = conf_freq.get(rank_str, 0) + cnt
-                elif rank_str in ["Q1", "Q2", "Q3", "Q4"]:
-                    jour_freq[rank_str] = jour_freq.get(rank_str, 0) + cnt
-                else:
-                    unranked += cnt
+        # Enqueue all root authors and mark as discovered
+        for author in sql_authors:
+            root_id = author["id"]
+            discovered.add(root_id)
+            queue.append(root_id)
 
-            best_conf = max(conf_freq, key=conf_freq.get) if conf_freq else "Unranked"
-            best_jour = max(jour_freq, key=jour_freq.get) if jour_freq else "Unranked"
+        while queue:
+            current_id = queue.popleft()
 
-            link_obj = {
-                "source": s_id,
-                "target": e_id,
-                "avg_conf_rank": best_conf,
-                "avg_journal_rank": best_jour,
-                "Unranked": unranked,
-            }
-            for yr, val in years_map.items():
-                link_obj[str(yr)] = val
-            for rank, val in conf_freq.items():
-                link_obj[str(rank)] = val
-            for rank, val in jour_freq.items():
-                link_obj[str(rank)] = val
+            # For each neighbor in adjacency list
+            for neighbor_id in adj_list[current_id]:
+                # Only create a link if the neighbor was not discovered yet
+                if neighbor_id not in discovered:
+                    discovered.add(neighbor_id)
+                    queue.append(neighbor_id)
 
-            links.append(link_obj)
+                    # Retrieve the edge data from our stored map
+                    pair_key = tuple(sorted((current_id, neighbor_id)))
+                    (s_id, s_label, s_img, e_id, e_label, e_img) = edge_data_map[pair_key]
 
-        # ---------------------------
-        # 5) Finalize node rankings
-        # ---------------------------
-        total_nodes_ids = []
-        for node_id, node_data in nodes.items():
-            total_nodes_ids.append(node_id)
+                    # Get publication/rank info
+                    rank_counts = pair_to_ranks_freq.get(pair_key, {})
+                    years_map = pair_to_years_freq.get(pair_key, {})
 
-        total_nodes_ids = ','.join(f"({num})" for num in total_nodes_ids)
+                    conf_freq = {}
+                    jour_freq = {}
+                    unranked = 0
+                    for rank_str, cnt in rank_counts.items():
+                        if rank_str in ["A*", "A", "B", "C"]:
+                            conf_freq[rank_str] = conf_freq.get(rank_str, 0) + cnt
+                        elif rank_str in ["Q1", "Q2", "Q3", "Q4"]:
+                            jour_freq[rank_str] = jour_freq.get(rank_str, 0) + cnt
+                        else:
+                            unranked += cnt
+
+                    best_conf = max(conf_freq, key=conf_freq.get) if conf_freq else "Unranked"
+                    best_jour = max(jour_freq, key=jour_freq.get) if jour_freq else "Unranked"
+
+                    link_obj = {
+                        "source": s_id,
+                        "target": e_id,
+                        "avg_conf_rank": best_conf,
+                        "avg_journal_rank": best_jour,
+                        "Unranked": unranked,
+                    }
+                    # Add year counts, etc.
+                    for yr, val in years_map.items():
+                        link_obj[str(yr)] = val
+                    for rank, val in conf_freq.items():
+                        link_obj[str(rank)] = val
+                    for rank, val in jour_freq.items():
+                        link_obj[str(rank)] = val
+
+                    links.append(link_obj)
+
+        # -------------------------------------------------------
+        # 4) Now 'links' is in a tree-like structure (or forest)
+        #    from your specified root authors
+        # -------------------------------------------------------
+
+        # -------------------------------------------------------
+        # 5) Finalize node rankings only for discovered nodes
+        # -------------------------------------------------------
+        # Filter down to discovered nodes only:
+        discovered_node_ids = list(discovered)  # we need them in a list for the query
+        total_nodes_ids_str = ','.join(f"({num})" for num in discovered_node_ids)
+
         nodes_full_data = await AuthorQuery.build_author_overview_query(pool).join(
-            "INNER", f"(VALUES {total_nodes_ids})", "totids(id)", on_condition="totids.id = ab.id"
+            "INNER", f"(VALUES {total_nodes_ids_str})", "totids(id)", on_condition="totids.id = ab.id"
         ).execute()
 
-        for node_id, node_data in nodes.items():
-            author_data = next((x for x in nodes_full_data if x["Author ID"] == node_id), None)
-            freq_conf_rank = author_data["Frequent Conf. Rank"]
-            freq_jour_rank = author_data["Frequent Journal Rank"]
+        # Build a quick lookup from that query result
+        id_to_author_data = {x["Author ID"]: x for x in nodes_full_data}
 
-            node_data["freq_conf_rank"] = freq_conf_rank
-            node_data["freq_journal_rank"] = freq_jour_rank
+        # Update your node info
+        for node_id in discovered:
+            author_data = id_to_author_data.get(node_id)
+            if author_data:
+                freq_conf_rank = author_data["Frequent Conf. Rank"]
+                freq_jour_rank = author_data["Frequent Journal Rank"]
+                nodes[node_id]["freq_conf_rank"] = freq_conf_rank
+                nodes[node_id]["freq_journal_rank"] = freq_jour_rank
+
+        # If you like, you can also prune out non-discovered nodes from 'nodes':
+        nodes = {nid: ndata for nid, ndata in nodes.items() if nid in discovered}
 
         return jsonify({"nodes": list(nodes.values()), "links": links})
 
