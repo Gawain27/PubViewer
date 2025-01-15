@@ -4,10 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="db80d762-0fca-42fc-a111-806da2eacda9" name="Changes" comment="stable rendering">
+    <list default="true" id="db80d762-0fca-42fc-a111-806da2eacda9" name="Changes" comment="stable rendering 2">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/config.json" beforeDir="false" afterPath="$PROJECT_DIR$/config.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/static/js/graph.js" beforeDir="false" afterPath="$PROJECT_DIR$/static/js/graph.js" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -228,7 +227,7 @@
       <workItem from="1736770773618" duration="630000" />
       <workItem from="1736771463380" duration="1915000" />
       <workItem from="1736801400632" duration="600000" />
-      <workItem from="1736802233364" duration="53318000" />
+      <workItem from="1736802233364" duration="54525000" />
     </task>
     <task id="LOCAL-00001" summary="Reworked impl">
       <option name="closed" value="true" />
@@ -374,7 +373,15 @@
       <option name="project" value="LOCAL" />
       <updated>1736913161869</updated>
     </task>
-    <option name="localTasksCounter" value="19" />
+    <task id="LOCAL-00019" summary="stable rendering 2">
+      <option name="closed" value="true" />
+      <created>1736927370757</created>
+      <option name="number" value="00019" />
+      <option name="presentableId" value="LOCAL-00019" />
+      <option name="project" value="LOCAL" />
+      <updated>1736927370757</updated>
+    </task>
+    <option name="localTasksCounter" value="20" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -421,7 +428,8 @@
     <MESSAGE value="graph modularized" />
     <MESSAGE value="revised foreign keys" />
     <MESSAGE value="stable rendering" />
-    <option name="LAST_COMMIT_MESSAGE" value="stable rendering" />
+    <MESSAGE value="stable rendering 2" />
+    <option name="LAST_COMMIT_MESSAGE" value="stable rendering 2" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
     <SUITE FILE_PATH="coverage/PubViewer$initialize_db.coverage" NAME="initialize_db Coverage Results" MODIFIED="1734030146524" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/com/gwngames/script" />
