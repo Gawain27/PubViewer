@@ -3,7 +3,7 @@ from com.gwngames.server.entity.base.Conference import Conference
 from com.gwngames.server.entity.base.Interest import Interest
 from com.gwngames.server.entity.base.Journal import Journal
 from com.gwngames.server.entity.base.Publication import Publication
-from com.gwngames.server.entity.base.Relationships import PublicationAuthor, AuthorInterest
+from com.gwngames.server.entity.base.Relationships import PublicationAuthor, AuthorInterest, AuthorCoauthor
 from com.gwngames.server.entity.variant.scholar.GoogleScholarAuthor import GoogleScholarAuthor
 from com.gwngames.server.entity.variant.scholar.GoogleScholarPublication import GoogleScholarPublication
 from com.gwngames.server.query.QueryBuilder import QueryBuilder
@@ -214,6 +214,7 @@ class AuthorQuery:
             .with_cte("avg_sjr_score", avg_sjr_score_qb)
 
         main_qb.select("""
+            DISTINCT ON (ab.id)
             ab.id                  AS "Author ID",
             to_camel_case(ab.name) AS "Name",
             CASE
@@ -238,26 +239,29 @@ class AuthorQuery:
 
     @staticmethod
     def build_author_group_query_batch(session, author_ids):
+        # Convert the list of author IDs into a formatted string for SQL VALUES
         author_ids = ",".join(map(str, author_ids))
         numbers = author_ids.split(',')
+        numbers.append("0")
         author_ids = ','.join(f"({num})" for num in numbers)
 
-        qb = QueryBuilder(session, Publication.__tablename__, "p")
+        # Initialize QueryBuilder with the author_coauthor table
+        qb = QueryBuilder(session, AuthorCoauthor.__tablename__, "aco")
+
+        # Join with the necessary tables
         qb.join(
-            "INNER", PublicationAuthor.__tablename__, "pa_start", "p.id = pa_start.publication_id"
-        ).join(
-            "INNER", Author.__tablename__, "start_author", "pa_start.author_id = start_author.id"
+            "INNER", Author.__tablename__, "start_author", "aco.author_id = start_author.id"
         ).join(
             "INNER", GoogleScholarAuthor.__tablename__, "start_gs", "start_author.id = start_gs.author_key"
         ).join(
-            "INNER", PublicationAuthor.__tablename__, "pa_end", "p.id = pa_end.publication_id"
-        ).join(
-            "INNER", Author.__tablename__, "end_author", "pa_end.author_id = end_author.id"
+            "INNER", Author.__tablename__, "end_author", "aco.coauthor_id = end_author.id"
         ).join(
             "INNER", GoogleScholarAuthor.__tablename__, "end_gs", "end_author.id = end_gs.author_key"
+        ).join(
+            "INNER", f"(VALUES {author_ids})", "id_author(id)", on_condition="start_author.id = id_author.id"
         )
-        #qb.and_condition("", f"start_author.id IN ({author_ids})", custom=True)
-        qb.join("INNER", f"(VALUES {author_ids})", "id_author(id)", on_condition="start_author.id = id_author.id")
+
+        # Select the required columns
         qb.select(
             """
             start_author.id AS start_author_id,
@@ -268,10 +272,13 @@ class AuthorQuery:
             end_author.image_url AS end_author_image_url
             """
         )
+
+        # Group by the required columns
         qb.group_by(
             "start_author.id", "start_author.name", "start_author.image_url",
             "end_author.id", "end_author.name", "end_author.image_url"
         )
+
         return qb
 
     @staticmethod

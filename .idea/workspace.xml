@@ -4,13 +4,15 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="db80d762-0fca-42fc-a111-806da2eacda9" name="Changes" comment="revised foreign keys">
-      <change beforePath="$PROJECT_DIR$/.idea/PubViewer.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/PubViewer.iml" afterDir="false" />
+    <list default="true" id="db80d762-0fca-42fc-a111-806da2eacda9" name="Changes" comment="redo">
+      <change afterPath="$PROJECT_DIR$/.idea/PubViewer2.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app.py" beforeDir="false" afterPath="$PROJECT_DIR$/app.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/com/gwngames/server/query/queries/AuthorQuery.py" beforeDir="false" afterPath="$PROJECT_DIR$/com/gwngames/server/query/queries/AuthorQuery.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/deploy.py" beforeDir="false" afterPath="$PROJECT_DIR$/deploy.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/static/js/graph.js" beforeDir="false" afterPath="$PROJECT_DIR$/static/js/graph.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/static/js/overview.js" beforeDir="false" afterPath="$PROJECT_DIR$/static/js/overview.js" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/templates/graph_component.html" beforeDir="false" afterPath="$PROJECT_DIR$/templates/graph_component.html" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -81,9 +83,10 @@
     "Python.initialize_db.executor": "Run",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.git.unshallow": "true",
+    "SHARE_PROJECT_CONFIGURATION_FILES": "true",
     "git-widget-placeholder": "master",
     "ignore.virus.scanning.warn.message": "true",
-    "last_opened_file_path": "/home/gwng/PycharmProjects/PubViewer",
+    "last_opened_file_path": "C:/Users/gwn27/PycharmProjects/PubPersister",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
@@ -198,8 +201,8 @@
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-js-predefined-d6986cc7102b-deb605915726-JavaScript-PY-243.22562.220" />
-        <option value="bundled-python-sdk-0fc6c617c4bd-9a18a617cbe4-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-243.22562.220" />
+        <option value="bundled-js-predefined-d6986cc7102b-410509235cf1-JavaScript-PY-242.20224.428" />
+        <option value="bundled-python-sdk-80e8e15d2b92-39cff9de6eef-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-242.20224.428" />
       </set>
     </attachedChunks>
   </component>
@@ -230,6 +233,8 @@
       <workItem from="1736148558944" duration="21182000" />
       <workItem from="1736770773618" duration="630000" />
       <workItem from="1736771463380" duration="1915000" />
+      <workItem from="1736801400632" duration="600000" />
+      <workItem from="1736802233364" duration="39051000" />
     </task>
     <task id="LOCAL-00001" summary="Reworked impl">
       <option name="closed" value="true" />

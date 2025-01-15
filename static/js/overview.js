@@ -1,5 +1,5 @@
 // We'll keep a global array of all rows we have retrieved
-let allRows = [];
+var allRows = [];
 
 /**
  * Toggling "Select All" checkbox to check/uncheck all row checkboxes

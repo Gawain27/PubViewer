@@ -748,7 +748,7 @@ async def generate_graph():
 
             start_depth += 1
 
-        # 1) Minimal node info (unchanged)
+        # 1) Minimal node info
         for author in sql_authors:
             if author["id"] not in nodes:
                 nodes[author["id"]] = {
@@ -869,12 +869,7 @@ async def generate_graph():
                     links.append(link_obj)
 
         # -------------------------------------------------------
-        # 4) Now 'links' is in a tree-like structure (or forest)
-        #    from your specified root authors
-        # -------------------------------------------------------
-
-        # -------------------------------------------------------
-        # 5) Finalize node rankings only for discovered nodes
+        # 4) Finalize node rankings only for discovered nodes
         # -------------------------------------------------------
         # Filter down to discovered nodes only:
         discovered_node_ids = list(discovered)  # we need them in a list for the query
@@ -884,10 +879,8 @@ async def generate_graph():
             "INNER", f"(VALUES {total_nodes_ids_str})", "totids(id)", on_condition="totids.id = ab.id"
         ).execute()
 
-        # Build a quick lookup from that query result
         id_to_author_data = {x["Author ID"]: x for x in nodes_full_data}
 
-        # Update your node info
         for node_id in discovered:
             author_data = id_to_author_data.get(node_id)
             if author_data:
@@ -896,8 +889,13 @@ async def generate_graph():
                 nodes[node_id]["freq_conf_rank"] = freq_conf_rank
                 nodes[node_id]["freq_journal_rank"] = freq_jour_rank
 
-        # If you like, you can also prune out non-discovered nodes from 'nodes':
         nodes = {nid: ndata for nid, ndata in nodes.items() if nid in discovered}
+
+        # Filter links so only edges where both endpoints are discovered
+        links = [
+            link for link in links
+            if link["source"] in discovered and link["target"] in discovered
+        ]
 
         return jsonify({"nodes": list(nodes.values()), "links": links})
 

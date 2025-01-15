@@ -7,19 +7,6 @@
         <!-- Instead of a separate filter <input>, we'll rely on Select2's built-in search -->
         <select id="node-label" name="node_label"
                 style="padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
-            <script>
-                (function populateNodeLabels() {
-                    const startIds = "{{ start_id }}".split(',');
-                    const startLabels = "{{ start_label }}".split(',');
-                    const nodeLabelSelector = master_document.getElementById('node-label');
-                    for (let i = 0; i < startIds.length; i++) {
-                        const option = master_document.createElement('option');
-                        option.value = startIds[i].trim();
-                        option.textContent = startLabels[i].trim();
-                        nodeLabelSelector.appendChild(option);
-                    }
-                })();
-            </script>
         </select>
     </div>
 

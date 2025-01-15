@@ -34,8 +34,8 @@ if __name__ == "__main__":
 
     # Remote configuration
     REMOTE_HOST = "gwngames.com"  # Replace with your remote server's address
-    REMOTE_USER = ""  # Replace with your username
-    REMOTE_PASSWORD = ""  # Replace with your password
+    REMOTE_USER = "gwng"  # Replace with your username
+    REMOTE_PASSWORD = "GwngXGwng27"  # Replace with your password
     REMOTE_DIRECTORY = "/opt/gpub/viewer"  # Replace with your target directory on the remote machine
 
     # Deploy the script's directory

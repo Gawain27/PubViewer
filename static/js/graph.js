@@ -6,7 +6,7 @@ const GRAPH_DIMENSIONS = { width: 1000, height: 600 };
 const FORCE_SETTINGS = {
     linkStrength: 2,
     chargeStrength: -500,
-    collideRadius: 60,
+    collideRadius: 8,
     collideStrength: 2,
     linkDistanceScale: 6.5,
     zoomStep: 1.1,
@@ -94,8 +94,9 @@ function getLinkColor(link, selectedConfRank, selectedJournRank, isLinkFilter) {
 // Updates the dropdown labels with graph nodes
 // ======================================================
 
-function updateNodeDropdown() {
-  console.log("Updating node dropdown...");
+function updateNodeDropdown(selectedNodeId) {
+  console.log("Starting dropdown update...");
+
   const nodeLabelDropdown = master_document.getElementById("node-label");
   if (!nodeLabelDropdown) {
     console.error("Node label dropdown element not found!");
@@ -104,11 +105,13 @@ function updateNodeDropdown() {
 
   // Convert the dropdown’s current options to an Array for easy searching
   const existingOptions = Array.from(nodeLabelDropdown.options);
+  console.log("Existing options:", existingOptions.map(opt => ({ value: opt.value, text: opt.text })));
 
   // Add options that do not already exist in the dropdown
   graphData.nodes.forEach(({ id, label }) => {
     const alreadyExists = existingOptions.some(opt => opt.value === id);
     if (!alreadyExists) {
+      console.log(`Adding new option: id=${id}, label=${label}`);
       const newOption = master_document.createElement("option");
       newOption.value = id;
       newOption.textContent = label;
@@ -116,8 +119,18 @@ function updateNodeDropdown() {
     }
   });
 
+  // Set the selected option to the provided selectedNodeId if it exists
+  const matchingOption = Array.from(nodeLabelDropdown.options).find(opt => opt.value === selectedNodeId);
+  if (matchingOption) {
+    console.log(`Found matching option for selectedNodeId=${selectedNodeId}, selecting it.`);
+    nodeLabelDropdown.value = selectedNodeId;
+  } else {
+    console.warn(`No matching option found for selectedNodeId=${selectedNodeId}, leaving selection unchanged.`);
+  }
+
   console.log("Dropdown update complete.");
 }
+
 
 // ======================================================
 // Merges new nodes/links into existing graph data
@@ -237,26 +250,26 @@ function updatePubCount(conferenceRank, journalRank, fromYear, toYear) {
 // ======================================================
 // Renders the graph using D3.js
 // ======================================================
-function renderGraph(conferenceRank, journalRank, isFinal = false) {
+function renderGraph(conferenceRank, journalRank) {
     const svg = d3.select("svg");
     svg.selectAll("*").remove();
-
-    const zoomLayer = svg.append("g");
-
+    const svgElement = document.querySelector('svg');
+    const rect = svgElement.getBoundingClientRect();
+    const width = rect.width;
+    const height = rect.height;
     // ----------------------------------------------------------------------
-    // 1. Build the link data and link elements
+    // 1. Build the link data and node data
     // ----------------------------------------------------------------------
     // Only render links with pub_count > 0
     let linkData = graphData.links.filter((l) => l.pub_count && l.pub_count > 0);
 
-    // Start with all nodes (this may be further filtered below).
+    // Start with all nodes
     let nodeData = graphData.nodes.filter((n) => true);
 
     const linksCheckbox = document.getElementById('links-checkbox');
 
-    // If the user wants to strictly filter out links that do NOT have the specified
-    // conf/journal rank, filter out those links directly.
     if (linksCheckbox.checked) {
+        // If user wants to strictly filter out links that do NOT have the specified rank
         if (conferenceRank && conferenceRank.trim() !== "") {
             linkData = linkData.filter((l) => typeof l[conferenceRank] === "number" && l[conferenceRank] > 0);
         }
@@ -264,8 +277,7 @@ function renderGraph(conferenceRank, journalRank, isFinal = false) {
             linkData = linkData.filter((l) => typeof l[journalRank] === "number" && l[journalRank] > 0);
         }
     } else {
-        // If we're not filtering links strictly, we can filter nodes by the requested rank
-        // (and later only keep links relevant to those nodes).
+        // If not filtering links strictly, filter nodes first
         if (conferenceRank && conferenceRank.trim() !== "") {
             nodeData = nodeData.filter((n) => n['freq_conf_rank'] === conferenceRank);
         }
@@ -274,34 +286,15 @@ function renderGraph(conferenceRank, journalRank, isFinal = false) {
         }
     }
 
-    // Optional "default" link filter if no rank is chosen and the linkData is large
-    if (journalRank === "" && conferenceRank === "" && linkData.length >= 7000) {
-        linkData = linkData.filter(
-            (l) =>
-                ["A*", "A"].includes(l["avg_conf_rank"]) &&
-                ["Q1", "Q2"].includes(l["avg_journal_rank"])
-        );
-    }
-
-    // ----------------------------------------------------------------------
-    // NEW STEP A: Filter out links that do not connect the final node set
-    // (i.e., if a node was removed by a rank filter, remove the link).
-    // ----------------------------------------------------------------------
-    // 1) Create a set of *initially* filtered node IDs
+    // Keep only links that connect nodes in the filtered node set
     const nodeIds = new Set(nodeData.map((node) => node.id));
-
-    // 2) Filter out links whose source or target isn't in that set
     linkData = linkData.filter((link) => {
         const sourceId = typeof link.source === "object" ? link.source.id : link.source;
         const targetId = typeof link.target === "object" ? link.target.id : link.target;
         return nodeIds.has(sourceId) && nodeIds.has(targetId);
     });
 
-    // ----------------------------------------------------------------------
-    // NEW STEP B: Now that links have changed, we also remove any nodes that
-    // are no longer referenced by any link (in case some nodes ended up with
-    // no links after the link filter).
-    // ----------------------------------------------------------------------
+    // Filter out nodes that are not linked
     const linkedNodeIds = new Set();
     linkData.forEach((link) => {
         const sourceId = typeof link.source === "object" ? link.source.id : link.source;
@@ -309,7 +302,6 @@ function renderGraph(conferenceRank, journalRank, isFinal = false) {
         linkedNodeIds.add(sourceId);
         linkedNodeIds.add(targetId);
     });
-    // Filter the node list again (to only include linked nodes):
     const filteredNodes = nodeData.filter((node) => linkedNodeIds.has(node.id));
 
     // ----------------------------------------------------------------------
@@ -320,150 +312,77 @@ function renderGraph(conferenceRank, journalRank, isFinal = false) {
         return; // Stop rendering
     }
 
-    // ----------------------------------------------------------------------
-    // 2. Render the links
-    // ----------------------------------------------------------------------
-    const link = zoomLayer
-        .append("g")
-        .selectAll("line")
-        .data(linkData)
-        .enter()
-        .append("line")
-        .attr("stroke", (d) => getLinkColor(d, conferenceRank, journalRank, linksCheckbox.checked))
-        .attr("stroke-width", (d) => LINK_WIDTH_SCALE(d.pub_count));
+    const simulation = d3.forceSimulation(filteredNodes)
+      .force("link", d3.forceLink(linkData).id(d => d.id).strength(1))
+      .force("charge", d3.forceManyBody().strength(-50))
+        .force("center", d3.forceCenter(width / 2, height / 2))
+        .force("collide", d3.forceCollide().radius(FORCE_SETTINGS.collideRadius))
+      .force("x", d3.forceX())
+      .force("y", d3.forceY());
 
-    console.log("Rendered links:", linkData);
+      drag = simulation => {
 
-    // ----------------------------------------------------------------------
-    // 3. Determine dynamic link distance
-    // ----------------------------------------------------------------------
-    const totalNodes = filteredNodes.length;
-    const dynamicLinkDistance = 200 + totalNodes * FORCE_SETTINGS.linkDistanceScale;
-    console.log("Calculated dynamic link distance:", dynamicLinkDistance);
-
-    // ----------------------------------------------------------------------
-    // 4. Create D3 simulation
-    // ----------------------------------------------------------------------
-    const simulation = d3
-        .forceSimulation(filteredNodes)
-        .force(
-            "link",
-            d3.forceLink(linkData)
-                .id((d) => d.id)
-                .distance(dynamicLinkDistance)
-                .strength(FORCE_SETTINGS.linkStrength)
-        )
-        .force("charge", d3.forceManyBody().strength(FORCE_SETTINGS.chargeStrength))
-        .force("center", d3.forceCenter(GRAPH_DIMENSIONS.width / 2, GRAPH_DIMENSIONS.height / 2))
-        .force("collide", d3.forceCollide().radius(FORCE_SETTINGS.collideRadius).strength(FORCE_SETTINGS.collideStrength))
-        .alphaDecay(0.05);
-
-    // ----------------------------------------------------------------------
-    // 5. granular zoom
-    // ----------------------------------------------------------------------
-    zoomBehavior = d3.zoom()
-        .scaleExtent([0.05, 10])
-        .on("zoom", (event) => {
-            zoomLayer.attr("transform", event.transform);
-        });
-    svg.call(zoomBehavior);
-
-    // ----------------------------------------------------------------------
-    // 6. Build the node data and node elements
-    // ----------------------------------------------------------------------
-    const node = zoomLayer
-        .append("g")
-        .selectAll("g")
-        .data(filteredNodes)
-        .enter()
-        .append("g")
-        .call(
-            d3.drag()
-                .on("start", dragStarted)
-                .on("drag", dragged)
-                .on("end", dragEnded)
-        )
-        .on("contextmenu", (event, d) => {
-            event.preventDefault();
-            showNodePopup(d, event.pageX, event.pageY);
-        });
-
-    console.log("Rendered nodes:", filteredNodes);
-
-    // Circle mask for avatar
-    node.append("clipPath")
-        .attr("id", (d) => `clip-${d.id}`)
-        .append("circle")
-        .attr("r", 50);
-
-    node.append("circle")
-        .attr("r", 50)
-        .attr("fill", "white")
-        .attr("stroke", "#999")
-        .attr("stroke-width", 2);
-
-    node.append("image")
-        .attr("xlink:href", (d) => d.image)
-        .attr("width", 100)
-        .attr("height", 100)
-        .attr("x", -50)
-        .attr("y", -50)
-        .attr("clip-path", (d) => `url(#clip-${d.id})`)
-        .on("error", function () {
-            d3.select(this).attr("xlink:href", "/static/resource/avatar.png");
-        });
-
-    node.append("text")
-        .attr("font-size", "16px")
-        .attr("fill", "#000")
-        .attr("text-anchor", "middle")
-        .attr("dy", 70)
-        .text((d) => d.label);
-
-    // ----------------------------------------------------------------------
-    // 7. Attach "tick" handler
-    // ----------------------------------------------------------------------
-    simulation.on("tick", () => {
-        link
-            .attr("x1", (d) => d.source.x)
-            .attr("y1", (d) => d.source.y)
-            .attr("x2", (d) => d.target.x)
-            .attr("y2", (d) => d.target.y);
-
-        node.attr("transform", (d) => `translate(${d.x},${d.y})`);
-    });
-
-    // ----------------------------------------------------------------------
-    // 8. Disable physics once the simulation stabilizes
-    // ----------------------------------------------------------------------
-    setTimeout(() => {
-        console.log(`Stopping simulation after ${FORCE_SETTINGS.simulationMaxRuntime} ms...`);
-        simulation
-            .force("link", null)
-            .force("charge", null)
-            .force("center", null)
-            .force("collide", null);
-    }, FORCE_SETTINGS.simulationMaxRuntime);
-
-    // ----------------------------------------------------------------------
-    // Draggable node events
-    // ----------------------------------------------------------------------
-    function dragStarted(event, d) {
+      function dragstarted(event, d) {
         if (!event.active) simulation.alphaTarget(0.3).restart();
         d.fx = d.x;
         d.fy = d.y;
-    }
+      }
 
-    function dragged(event, d) {
+      function dragged(event, d) {
         d.fx = event.x;
         d.fy = event.y;
-    }
+      }
 
-    function dragEnded(event, d) {
+      function dragended(event, d) {
         if (!event.active) simulation.alphaTarget(0);
         d.fx = null;
         d.fy = null;
+      }
+
+      return d3.drag()
+          .on("start", dragstarted)
+          .on("drag", dragged)
+          .on("end", dragended);
     }
+
+    // Append links.
+      const link = svg.append("g")
+        .selectAll("line")
+        .data(linkData)
+        .join("line") // Ensure elements are created first
+        .attr("stroke", (d) => getLinkColor(d, conferenceRank, journalRank, linksCheckbox.checked))
+        .attr("stroke-width", (d) => LINK_WIDTH_SCALE(d.pub_count));
+
+
+      // Append nodes.
+      const node = svg.append("g")
+          .attr("fill", "#fff")
+          .attr("stroke", "#000")
+          .attr("stroke-width", 1.5)
+        .selectAll("circle")
+        .data(filteredNodes)
+        .join("circle")
+          .attr("fill", "white")
+          .attr("stroke", "#000")
+          .attr("r", 3.5)
+          .call(drag(simulation))
+         .on("contextmenu", (event, d) => {
+                event.preventDefault();
+                showNodePopup(d, event.pageX, event.pageY);
+         });
+
+
+      simulation.on("tick", () => {
+        link
+            .attr("x1", d => d.source.x)
+            .attr("y1", d => d.source.y)
+            .attr("x2", d => d.target.x)
+            .attr("y2", d => d.target.y);
+
+        node
+            .attr("cx", d => d.x)
+            .attr("cy", d => d.y);
+      });
 }
 
 
@@ -584,6 +503,7 @@ document.getElementById("zoom-out-btn").addEventListener("click", () => {
 // Handles Graph API call
 // ======================================================
 function fetchGraphData(selectedNodeId, depth, conferenceRank, journalRank, fromYear, toYear, loadingPopup, timerInterval, render = true, init = false){
+    let last_selected;
     fetch("/generate-graph", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -601,12 +521,18 @@ function fetchGraphData(selectedNodeId, depth, conferenceRank, journalRank, from
             console.log("API response received:", { nodes, links });
             mergeGraphData(nodes, links);
             updatePubCount(conferenceRank, journalRank, fromYear, toYear);
-            updateNodeDropdown(selectedNodeId);
+            let split_ids = selectedNodeId.split(',');
+            if (init === true){
+                for (let id in split_ids){
+                    updateNodeDropdown(id);
+                    last_selected = id;
+                }
+            }
             if (render === true) {
                 renderGraph(conferenceRank, journalRank);
             }
 
-            prev_id = selectedNodeId;
+            prev_id = last_selected;
             prev_depth = depth;
         })
         .catch((error) => console.error("Error during graph generation:", error))
@@ -614,16 +540,10 @@ function fetchGraphData(selectedNodeId, depth, conferenceRank, journalRank, from
             if (loadingPopup != null){
                 loadingPopup.style.display = "none";
                 clearInterval(timerInterval); // Stop the timer
-                setTimeout(async () => {
-                    renderGraph(conferenceRank, journalRank, true);
-                }, 1500);
             }
             if (init){
                 const loadingPopup = document.getElementById("loading-popup");
                 loadingPopup.style.display = "none";
-                setTimeout(async () => {
-                    renderGraph(conferenceRank, journalRank, true);
-                }, 1500);
             }
         });
 }
