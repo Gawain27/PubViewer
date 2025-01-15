@@ -307,7 +307,7 @@ function updatePubCount(conferenceRank, journalRank, fromYear, toYear) {
     console.log("New pub_count updated for links:", graphData.links);
 }
 
-function renderGraph(conferenceRank, journalRank, fromYear, toYear) {
+function renderGraph(conferenceRank, journalRank) {
     const svg = d3.select("svg");
     // Remove any existing elements before redrawing
     svg.selectAll("*").remove();
@@ -363,7 +363,8 @@ function renderGraph(conferenceRank, journalRank, fromYear, toYear) {
     // ----------------------------------------------------------------------
     // If we have no nodes or no links at this point, alert & stop.
     // ----------------------------------------------------------------------
-    if ((filteredNodes.length === 0 || linkData.length === 0)) {
+    if ((filteredNodes.length === 0 || linkData.length === 0)
+        && (graphData.nodes.length !== 0 && graphData.links.length !== 0)) {
         alert("No result found for selected filters");
         return; // Stop rendering
     }
@@ -646,7 +647,7 @@ function fetchGraphData(selectedNodeId, depth, conferenceRank, journalRank, from
             }
             if (render === true) {
                 setTimeout(async () => {
-                    renderGraph(conferenceRank, journalRank, fromYear, toYear);
+                    renderGraph(conferenceRank, journalRank);
                 }, 1000);
             }
 
@@ -708,7 +709,7 @@ document.getElementById("graph-form").addEventListener("submit", function (event
         console.log("Skipping API call as prev_id and prev_depth match selectedNodeId and depth.");
         updatePubCount(conferenceRank, journalRank, fromYear, toYear);
         setTimeout(async () => {
-            renderGraph(conferenceRank, journalRank, fromYear, toYear);
+            renderGraph(conferenceRank, journalRank);
         }, 1000);
     } else {
         console.log("Making API call as prev_id and prev_depth are different.");
@@ -724,6 +725,21 @@ document.getElementById("graph-form").addEventListener("submit", function (event
 
         fetchGraphData(selectedNodeId, depth, conferenceRank, journalRank, fromYear, toYear, loadingPopup, timerInterval);
     }
+});
+
+document.getElementById("clear_graph").addEventListener("click", function (){
+    graphData.links.length = 0;
+    graphData.nodes.length = 0;
+    const svg = d3.select("svg");
+    svg.selectAll("*").remove();
+    setTimeout(
+        async () => {
+            graphData.links.length = 0;
+            graphData.nodes.length = 0;
+            const svg = d3.select("svg");
+            svg.selectAll("*").remove();
+        }, 1100
+    )
 });
 
 document.addEventListener("DOMContentLoaded", () => {
