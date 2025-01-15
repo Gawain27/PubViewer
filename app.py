@@ -3,6 +3,8 @@ import logging
 import os
 import threading
 import time
+from copy import deepcopy
+
 import schedule
 import traceback
 from collections import defaultdict, deque
@@ -748,6 +750,38 @@ async def generate_graph():
 
             start_depth += 1
 
+        # Additional step - Find connections for authors at final depth, but keep edges only for seen nodes
+        # ---------------------
+        weak_edges = []
+        current_authors = list(set(authors_to_query) - authors_seen)
+        results_this_depth = []
+        chunk_size = max_tuple_per_query
+        tasks = []
+        for i in range(0, len(current_authors), chunk_size):
+            chunk = current_authors[i: i + chunk_size]
+            tasks.append(asyncio.create_task(fetch_author_links_batch(chunk)))
+        sub_results_list = await asyncio.gather(*tasks)
+
+        # Combine sub-results
+        for sub_results in sub_results_list:
+            results_this_depth.extend(sub_results)
+
+        # Process BFS expansions
+        for row in results_this_depth:
+            s_id = row["start_author_id"]
+            e_id = row["end_author_id"]
+            weak_edges.append(
+                (
+                    s_id,
+                    row["start_author_label"],
+                    row["start_author_image_url"],
+                    e_id,
+                    row["end_author_label"],
+                    row["end_author_image_url"]
+                )
+            )
+        # -----------------------
+
         # 1) Minimal node info
         for author in sql_authors:
             if author["id"] not in nodes:
@@ -781,11 +815,22 @@ async def generate_graph():
             pair_key = tuple(sorted((s_id, e_id)))
             edge_data_map[pair_key] = (s_id, s_label, s_img, e_id, e_label, e_img)
 
+        for (s_id, s_label, s_img, e_id, e_label, e_img) in weak_edges:
+            if s_id in nodes and e_id in nodes:
+                # Add adjacency (undirected)
+                adj_list[s_id].append(e_id)
+                adj_list[e_id].append(s_id)
+
+                # We'll use a sorted tuple as the key, e.g. (min, max)
+                pair_key = tuple(sorted((s_id, e_id)))
+                edge_data_map[pair_key] = (s_id, s_label, s_img, e_id, e_label, e_img)
+
         # ------------------------------------------
         # 2) Fetch publication info (ranks, years)
-        #    as in your original code
         # ------------------------------------------
-        unique_pairs = set(tuple(sorted((s_id, e_id))) for (s_id, _, _, e_id, _, _) in edges)
+        all_edges = deepcopy(edges)
+        all_edges.extend(weak_edges)
+        unique_pairs = set(tuple(sorted((s_id, e_id))) for (s_id, _, _, e_id, _, _) in all_edges)
 
         pair_to_ranks_freq = {}
         pair_to_years_freq = {}
@@ -810,6 +855,7 @@ async def generate_graph():
         # 3) Build "tree" links from sql_authors
         # ------------------------------------------
         links = []
+        weak_links = []
         discovered = set()
         queue = deque()
 
@@ -867,6 +913,45 @@ async def generate_graph():
                         link_obj[str(rank)] = val
 
                     links.append(link_obj)
+                else:
+                    # Retrieve the edge data from our stored map
+                    pair_key = tuple(sorted((current_id, neighbor_id)))
+                    (s_id, s_label, s_img, e_id, e_label, e_img) = edge_data_map[pair_key]
+
+                    # Get publication/rank info
+                    rank_counts = pair_to_ranks_freq.get(pair_key, {})
+                    years_map = pair_to_years_freq.get(pair_key, {})
+
+                    conf_freq = {}
+                    jour_freq = {}
+                    unranked = 0
+                    for rank_str, cnt in rank_counts.items():
+                        if rank_str in ["A*", "A", "B", "C"]:
+                            conf_freq[rank_str] = conf_freq.get(rank_str, 0) + cnt
+                        elif rank_str in ["Q1", "Q2", "Q3", "Q4"]:
+                            jour_freq[rank_str] = jour_freq.get(rank_str, 0) + cnt
+                        else:
+                            unranked += cnt
+
+                    best_conf = max(conf_freq, key=conf_freq.get) if conf_freq else "Unranked"
+                    best_jour = max(jour_freq, key=jour_freq.get) if jour_freq else "Unranked"
+
+                    link_obj = {
+                        "source": s_id,
+                        "target": e_id,
+                        "avg_conf_rank": best_conf,
+                        "avg_journal_rank": best_jour,
+                        "Unranked": unranked,
+                    }
+                    # Add year counts, etc.
+                    for yr, val in years_map.items():
+                        link_obj[str(yr)] = val
+                    for rank, val in conf_freq.items():
+                        link_obj[str(rank)] = val
+                    for rank, val in jour_freq.items():
+                        link_obj[str(rank)] = val
+
+                    weak_links.append(link_obj)
 
         # -------------------------------------------------------
         # 4) Finalize node rankings only for discovered nodes
@@ -897,7 +982,7 @@ async def generate_graph():
             if link["source"] in discovered and link["target"] in discovered
         ]
 
-        return jsonify({"nodes": list(nodes.values()), "links": links})
+        return jsonify({"nodes": list(nodes.values()), "links": links, "weak_links": weak_links})
 
     except Exception as e:
         app.logger.error(f"Error: {e}")

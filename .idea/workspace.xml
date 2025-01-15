@@ -4,10 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="db80d762-0fca-42fc-a111-806da2eacda9" name="Changes" comment="stable rendering 2">
+    <list default="true" id="db80d762-0fca-42fc-a111-806da2eacda9" name="Changes" comment="temp fixes">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/static/js/graph.js" beforeDir="false" afterPath="$PROJECT_DIR$/static/js/graph.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/templates/graph_component.html" beforeDir="false" afterPath="$PROJECT_DIR$/templates/graph_component.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/deploy.py" beforeDir="false" afterPath="$PROJECT_DIR$/deploy.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -77,10 +76,9 @@
     "Python.initialize_db.executor": "Run",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.git.unshallow": "true",
-    "SHARE_PROJECT_CONFIGURATION_FILES": "true",
     "git-widget-placeholder": "master",
     "ignore.virus.scanning.warn.message": "true",
-    "last_opened_file_path": "C:/Users/gwn27/PycharmProjects/PubPersister",
+    "last_opened_file_path": "/home/gwng/PycharmProjects/PubViewer",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
@@ -195,8 +193,8 @@
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-js-predefined-d6986cc7102b-410509235cf1-JavaScript-PY-242.20224.428" />
-        <option value="bundled-python-sdk-80e8e15d2b92-39cff9de6eef-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-242.20224.428" />
+        <option value="bundled-js-predefined-d6986cc7102b-deb605915726-JavaScript-PY-243.22562.220" />
+        <option value="bundled-python-sdk-0fc6c617c4bd-9a18a617cbe4-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-243.22562.220" />
       </set>
     </attachedChunks>
   </component>
@@ -226,9 +224,7 @@
       <workItem from="1736148467017" duration="83000" />
       <workItem from="1736148558944" duration="21182000" />
       <workItem from="1736770773618" duration="630000" />
-      <workItem from="1736771463380" duration="1915000" />
-      <workItem from="1736801400632" duration="600000" />
-      <workItem from="1736802233364" duration="55834000" />
+      <workItem from="1736771463380" duration="4776000" />
     </task>
     <task id="LOCAL-00001" summary="Reworked impl">
       <option name="closed" value="true" />
@@ -366,39 +362,7 @@
       <option name="project" value="LOCAL" />
       <updated>1735634756628</updated>
     </task>
-    <task id="LOCAL-00018" summary="stable rendering">
-      <option name="closed" value="true" />
-      <created>1736913161869</created>
-      <option name="number" value="00018" />
-      <option name="presentableId" value="LOCAL-00018" />
-      <option name="project" value="LOCAL" />
-      <updated>1736913161869</updated>
-    </task>
-    <task id="LOCAL-00019" summary="stable rendering 2">
-      <option name="closed" value="true" />
-      <created>1736927370757</created>
-      <option name="number" value="00019" />
-      <option name="presentableId" value="LOCAL-00019" />
-      <option name="project" value="LOCAL" />
-      <updated>1736927370757</updated>
-    </task>
-    <task id="LOCAL-00020" summary="stable rendering 2">
-      <option name="closed" value="true" />
-      <created>1736928642060</created>
-      <option name="number" value="00020" />
-      <option name="presentableId" value="LOCAL-00020" />
-      <option name="project" value="LOCAL" />
-      <updated>1736928642060</updated>
-    </task>
-    <task id="LOCAL-00021" summary="stable rendering 2">
-      <option name="closed" value="true" />
-      <created>1736928648714</created>
-      <option name="number" value="00021" />
-      <option name="presentableId" value="LOCAL-00021" />
-      <option name="project" value="LOCAL" />
-      <updated>1736928648714</updated>
-    </task>
-    <option name="localTasksCounter" value="22" />
+    <option name="localTasksCounter" value="18" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -444,9 +408,8 @@
     <MESSAGE value="added network generative support" />
     <MESSAGE value="graph modularized" />
     <MESSAGE value="revised foreign keys" />
-    <MESSAGE value="stable rendering" />
-    <MESSAGE value="stable rendering 2" />
-    <option name="LAST_COMMIT_MESSAGE" value="stable rendering 2" />
+    <MESSAGE value="temp fixes" />
+    <option name="LAST_COMMIT_MESSAGE" value="temp fixes" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
     <SUITE FILE_PATH="coverage/PubViewer$initialize_db.coverage" NAME="initialize_db Coverage Results" MODIFIED="1734030146524" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/com/gwngames/script" />
