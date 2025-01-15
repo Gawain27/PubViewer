@@ -1,21 +1,21 @@
 // ======================================================
 // Configurations
 // ======================================================
-const GRAPH_DIMENSIONS = { width: 1000, height: 600 };
+var concatenatedIds = "";
 
 const FORCE_SETTINGS = {
     linkStrength: 2,
-    chargeStrength: -500,
-    collideRadius: 8,
-    collideStrength: 2,
-    linkDistanceScale: 6.5,
+    chargeStrength: -750,
+    collideRadius: 24,
+    collideStrength: 0.4,
+    linkDistanceScale: 1.5,
     zoomStep: 1.1,
     simulationMaxRuntime: 5000
 };
 
 const LINK_WIDTH_SCALE = d3.scaleLinear()
     .domain([0, 20])   // domain (up to 20 publications for max thickness)
-    .range([1, 12])    // min thickness 1, max thickness 12
+    .range([1, 8])    // min thickness 1, max thickness 12
     .clamp(true);      // do not exceed the range
 
 // ======================================================
@@ -165,6 +165,67 @@ function mergeGraphData(newNodes, newLinks) {
         }
     });
 
+    let selectedIds = concatenatedIds.split(",");
+    if (selectedIds.length > 0) {
+        console.log("Building adjacency list...");
+
+        // Build adjacency list from linkData
+        const adjacencyMap = new Map();
+        graphData.nodes.forEach((n) => adjacencyMap.set(String(n.id), []));
+        graphData.links.forEach((link) => {
+            const s = String(typeof link.source === "object" ? link.source.id : link.source);
+            const t = String(typeof link.target === "object" ? link.target.id : link.target);
+            if (!adjacencyMap.has(s)) adjacencyMap.set(s, []);
+            if (!adjacencyMap.has(t)) adjacencyMap.set(t, []);
+            adjacencyMap.get(s).push(t);
+            adjacencyMap.get(t).push(s);
+        });
+
+        console.log("Adjacency list built:", adjacencyMap);
+
+        // Set to store all reachable nodes from all selectedIds
+        const totalVisited = new Set();
+
+        selectedIds.forEach((selectedId) => {
+            console.log(`Processing selectedId: ${selectedId}`);
+            if (selectedId) {
+                const visited = new Set();
+                const queue = [String(selectedId)];
+                visited.add(String(selectedId));
+
+                // BFS or DFS to gather all reachable nodes for this selectedId
+                while (queue.length > 0) {
+                    const currentId = queue.shift();
+                    console.log(`Visiting node: ${currentId}`);
+                    const neighbors = adjacencyMap.get(currentId) || [];
+                    console.log(`Neighbors of ${currentId}:`, neighbors);
+                    neighbors.forEach((neighborId) => {
+                        if (!visited.has(neighborId)) {
+                            visited.add(neighborId);
+                            queue.push(neighborId);
+                        }
+                    });
+                }
+
+                console.log(`Visited nodes for selectedId ${selectedId}:`, visited);
+                // Merge the visited nodes into the total visited set
+                visited.forEach((node) => totalVisited.add(node));
+            }
+        });
+
+        console.log("Total visited nodes:", totalVisited);
+
+        // Filter nodeData and linkData based on the totalVisited set
+        graphData.nodes = graphData.nodes.filter((n) => totalVisited.has(String(n.id)));
+        graphData.links = graphData.links.filter((link) => {
+            const sourceId = String(typeof link.source === "object" ? link.source.id : link.source);
+            const targetId = String(typeof link.target === "object" ? link.target.id : link.target);
+            return totalVisited.has(sourceId) && totalVisited.has(targetId);
+        });
+    } else {
+        console.log("NO SELECTED ID");
+    }
+
     console.log("Merge complete. Updated graph data:", graphData);
 }
 
@@ -246,30 +307,25 @@ function updatePubCount(conferenceRank, journalRank, fromYear, toYear) {
     console.log("New pub_count updated for links:", graphData.links);
 }
 
-
-// ======================================================
-// Renders the graph using D3.js
-// ======================================================
-function renderGraph(conferenceRank, journalRank) {
+function renderGraph(conferenceRank, journalRank, fromYear, toYear) {
     const svg = d3.select("svg");
+    // Remove any existing elements before redrawing
     svg.selectAll("*").remove();
+
     const svgElement = document.querySelector('svg');
     const rect = svgElement.getBoundingClientRect();
     const width = rect.width;
     const height = rect.height;
-    // ----------------------------------------------------------------------
-    // 1. Build the link data and node data
-    // ----------------------------------------------------------------------
-    // Only render links with pub_count > 0
-    let linkData = graphData.links.filter((l) => l.pub_count && l.pub_count > 0);
 
-    // Start with all nodes
+    // ----------------------------------------------------------------------
+    // 1. Build the link data and node data (same logic as before)
+    // ----------------------------------------------------------------------
+    let linkData = graphData.links.filter((l) => l.pub_count && l.pub_count > 0);
     let nodeData = graphData.nodes.filter((n) => true);
 
     const linksCheckbox = document.getElementById('links-checkbox');
 
     if (linksCheckbox.checked) {
-        // If user wants to strictly filter out links that do NOT have the specified rank
         if (conferenceRank && conferenceRank.trim() !== "") {
             linkData = linkData.filter((l) => typeof l[conferenceRank] === "number" && l[conferenceRank] > 0);
         }
@@ -277,7 +333,6 @@ function renderGraph(conferenceRank, journalRank) {
             linkData = linkData.filter((l) => typeof l[journalRank] === "number" && l[journalRank] > 0);
         }
     } else {
-        // If not filtering links strictly, filter nodes first
         if (conferenceRank && conferenceRank.trim() !== "") {
             nodeData = nodeData.filter((n) => n['freq_conf_rank'] === conferenceRank);
         }
@@ -304,85 +359,146 @@ function renderGraph(conferenceRank, journalRank) {
     });
     const filteredNodes = nodeData.filter((node) => linkedNodeIds.has(node.id));
 
+    console.log("Nodes: " + filteredNodes.length + " - " + linkData.length);
     // ----------------------------------------------------------------------
     // If we have no nodes or no links at this point, alert & stop.
     // ----------------------------------------------------------------------
-    if ((filteredNodes.length === 0 || linkData.length === 0) && isFinal) {
+    if ((filteredNodes.length === 0 || linkData.length === 0)) {
         alert("No result found for selected filters");
         return; // Stop rendering
     }
 
+    // ----------------------------------------------------------------------
+    // 2. Create a zoom layer and attach zoom behavior
+    // ----------------------------------------------------------------------
+    var zoomLayer = svg.append("g");
+    zoomBehavior = d3.zoom()
+        .scaleExtent([0.05, 10])
+        .on("zoom", (event) => {
+            zoomLayer.attr("transform", event.transform);
+        });
+    svg.call(zoomBehavior);
+
+    // ----------------------------------------------------------------------
+    // 3. Create D3 force simulation
+    // ----------------------------------------------------------------------
     const simulation = d3.forceSimulation(filteredNodes)
-      .force("link", d3.forceLink(linkData).id(d => d.id).strength(1))
-      .force("charge", d3.forceManyBody().strength(-50))
-        .force("center", d3.forceCenter(width / 2, height / 2))
-        .force("collide", d3.forceCollide().radius(FORCE_SETTINGS.collideRadius))
+      .force("link", d3.forceLink(linkData).id(d => d.id).distance(100).strength(1))
+      .force("charge", d3.forceManyBody().strength(-1000))
+      .force("center", d3.forceCenter(width / 2, height / 2))
+      .force("collide", d3.forceCollide().radius(FORCE_SETTINGS.collideRadius).strength(FORCE_SETTINGS.collideStrength))
       .force("x", d3.forceX())
       .force("y", d3.forceY());
 
-      drag = simulation => {
+    simulation.on("end", () => {
+         simulation
+           .force("link", null)
+           .force("charge", null)
+           .force("center", null)
+           .force("collide", null)
+           .force("x", null)
+           .force("y", null);
+    });
 
-      function dragstarted(event, d) {
-        if (!event.active) simulation.alphaTarget(0.3).restart();
-        d.fx = d.x;
-        d.fy = d.y;
-      }
+    // ----------------------------------------------------------------------
+    // 4. Define drag behavior
+    // ----------------------------------------------------------------------
+    const drag = simulation => {
 
-      function dragged(event, d) {
-        d.fx = event.x;
-        d.fy = event.y;
-      }
+        function dragstarted(event, d) {
+            if (!event.active) simulation.alphaTarget(0.3).restart();
+            d.fx = d.x;
+            d.fy = d.y;
+        }
 
-      function dragended(event, d) {
-        if (!event.active) simulation.alphaTarget(0);
-        d.fx = null;
-        d.fy = null;
-      }
+        function dragged(event, d) {
+            d.fx = event.x;
+            d.fy = event.y;
+        }
 
-      return d3.drag()
-          .on("start", dragstarted)
-          .on("drag", dragged)
-          .on("end", dragended);
+        function dragended(event, d) {
+            if (!event.active) simulation.alphaTarget(0);
+            d.fx = null;
+            d.fy = null;
+        }
+
+        return d3.drag()
+            .on("start", dragstarted)
+            .on("drag", dragged)
+            .on("end", dragended);
     }
 
-    // Append links.
-      const link = svg.append("g")
-        .selectAll("line")
-        .data(linkData)
-        .join("line") // Ensure elements are created first
-        .attr("stroke", (d) => getLinkColor(d, conferenceRank, journalRank, linksCheckbox.checked))
-        .attr("stroke-width", (d) => LINK_WIDTH_SCALE(d.pub_count));
+    // ----------------------------------------------------------------------
+    // 5. Append links
+    // ----------------------------------------------------------------------
+    const link = zoomLayer.append("g")
+      .selectAll("line")
+      .data(linkData)
+      .join("line")
+      .attr("stroke", (d) => getLinkColor(d, conferenceRank, journalRank, linksCheckbox.checked))
+      .attr("stroke-width", (d) => LINK_WIDTH_SCALE(d.pub_count));
 
-
-      // Append nodes.
-      const node = svg.append("g")
-          .attr("fill", "#fff")
-          .attr("stroke", "#000")
-          .attr("stroke-width", 1.5)
-        .selectAll("circle")
+    // ----------------------------------------------------------------------
+    // 6. Append nodes as groups, so we can insert both circle & image
+    // ----------------------------------------------------------------------
+    const node = zoomLayer.selectAll("g.node")
         .data(filteredNodes)
-        .join("circle")
-          .attr("fill", "white")
-          .attr("stroke", "#000")
-          .attr("r", 3.5)
-          .call(drag(simulation))
-         .on("contextmenu", (event, d) => {
-                event.preventDefault();
-                showNodePopup(d, event.pageX, event.pageY);
-         });
+        .join("g")
+        .attr("class", "node")
+        .call(drag(simulation))
+        .on("contextmenu", (event, d) => {
+            event.preventDefault();
+            showNodePopup(d, event.pageX, event.pageY);
+        });
 
+    // Define a unique clipPath for each node
+    node.append("clipPath")
+        .attr("id", d => `clip-circle-${d.id}`)
+        .append("circle")
+        .attr("r", 16);
 
-      simulation.on("tick", () => {
+    // A circle (visible outline)
+    node.append("circle")
+        .attr("r", 16)
+        .attr("fill", "white")
+        .attr("stroke", "#000")
+        .attr("stroke-width", 1.5);
+
+    // The image, clipped to the circle
+    node.append("svg:image")
+        .attr("xlink:href", d => d.image || "")
+        .attr("width", 32)
+        .attr("height", 32)
+        .attr("x", -16)
+        .attr("y", -16)
+        .attr("clip-path", d => `url(#clip-circle-${d.id})`)
+        .on("error", function () {
+            d3.select(this).attr("xlink:href", "/static/resource/avatar.png");
+        });
+
+    // The label below the node
+    node.append("text")
+        .attr("x", 0)
+        .attr("y", 24)  // just below the circle
+        .attr("text-anchor", "middle")
+        .attr("alignment-baseline", "hanging")
+        .style("font-size", "8px")
+        .text(d => d.label || "");
+
+    // ----------------------------------------------------------------------
+    // 7. On every tick, update positions
+    // ----------------------------------------------------------------------
+    simulation.on("tick", () => {
         link
-            .attr("x1", d => d.source.x)
-            .attr("y1", d => d.source.y)
-            .attr("x2", d => d.target.x)
-            .attr("y2", d => d.target.y);
+          .attr("x1", d => d.source.x)
+          .attr("y1", d => d.source.y)
+          .attr("x2", d => d.target.x)
+          .attr("y2", d => d.target.y);
 
+        // Move the entire node group
         node
-            .attr("cx", d => d.x)
-            .attr("cy", d => d.y);
-      });
+          .attr("transform", d => `translate(${d.x}, ${d.y})`);
+    });
 }
 
 
@@ -529,7 +645,9 @@ function fetchGraphData(selectedNodeId, depth, conferenceRank, journalRank, from
                 }
             }
             if (render === true) {
-                renderGraph(conferenceRank, journalRank);
+                setTimeout(async () => {
+                    renderGraph(conferenceRank, journalRank, fromYear, toYear);
+                }, 1000);
             }
 
             prev_id = last_selected;
@@ -563,6 +681,14 @@ document.getElementById("graph-form").addEventListener("submit", function (event
     const fromYear = formData.get("from_year");
     const toYear = formData.get("to_year");
 
+    let list = concatenatedIds.split(",");
+
+    if (!list.includes(selectedNodeId.toString())) {
+        list.push(selectedNodeId.toString());
+    }
+
+    concatenatedIds = list.join(",");
+
     console.log("Form data extracted:", {
         selectedNodeId,
         depth,
@@ -581,7 +707,9 @@ document.getElementById("graph-form").addEventListener("submit", function (event
     if (prev_id === selectedNodeId && prev_depth === depth) {
         console.log("Skipping API call as prev_id and prev_depth match selectedNodeId and depth.");
         updatePubCount(conferenceRank, journalRank, fromYear, toYear);
-        renderGraph(conferenceRank, journalRank);
+        setTimeout(async () => {
+            renderGraph(conferenceRank, journalRank, fromYear, toYear);
+        }, 1000);
     } else {
         console.log("Making API call as prev_id and prev_depth are different.");
 
@@ -615,6 +743,7 @@ document.addEventListener("DOMContentLoaded", () => {
 // Initialize dropdown and basic graph on page load
 // ======================================================
 function initGraph(timerInterval, init_ids) {
+    concatenatedIds = init_ids
     try {
         // Make a single request with all option values concatenated
         fetchGraphData(init_ids, 1, "", "", "", "", null, null, false);
@@ -637,6 +766,7 @@ window.onload = function () {
     console.log("Initializing dropdown on page load...");
 
     let init_ids = startIds.join(',')
+    init_ids = init_ids.replaceAll("(", "").replaceAll(")", "");
 
     $(document).ready(function() {
         $('#node-label').select2({
