@@ -1,5 +1,7 @@
 // We'll keep a global array of all rows we have retrieved
 var allRows = [];
+var prev_order_by_column = "";
+var prev_order_by_type = "";
 
 /**
  * Toggling "Select All" checkbox to check/uncheck all row checkboxes
@@ -44,7 +46,7 @@ function handlePageMethod(endpoint) {
 function applyFilters() {
     console.log("Applying filters.");
     document.getElementById('offset').value = 0;
-    fetchData();
+    fetchData(prev_order_by_type, prev_order_by_column);
 }
 
 /**
@@ -71,7 +73,7 @@ function prevPage() {
     offset = Math.max(offset - limit, 0);
     document.getElementById('offset').value = offset;
     console.log("New offset after prevPage:", offset);
-    fetchData();
+    fetchData(prev_order_by_type, prev_order_by_column);
     updatePageCounter();
 }
 
@@ -85,7 +87,7 @@ function nextPage() {
     offset += limit;
     document.getElementById('offset').value = offset;
     console.log("New offset after nextPage:", offset);
-    fetchData();
+    fetchData(prev_order_by_type, prev_order_by_column);
     updatePageCounter();
 }
 
@@ -95,6 +97,8 @@ function nextPage() {
  */
 async function fetchData(orderType = "", orderColumn = "") {
     console.log("Fetching data.");
+    prev_order_by_column = orderColumn
+    prev_order_by_type = orderType
     const tableId = document.getElementById('tableId').value;
     let offset = parseInt(document.getElementById('offset').value, 10);
     const limit = parseInt(document.getElementById('limit').value, 10);

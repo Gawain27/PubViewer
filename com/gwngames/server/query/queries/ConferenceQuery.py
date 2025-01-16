@@ -7,7 +7,7 @@ class ConferenceQuery:
     def get_conferences(session):
         query_builder = QueryBuilder(session, Conference.__tablename__, alias="c")
         query_builder.select("""
-    c.id as "Conf ID",
+    '' || c.id as "Conf ID",
     c.title as "Conference Title",
     c.acronym as "Acronym",
     c.publisher as "Publisher",
@@ -19,7 +19,6 @@ class ConferenceQuery:
 """)
         query_builder.and_condition("", "c.rank IS NOT NULL", custom=True)
         query_builder.and_condition("", "c.acronym IS NOT NULL", custom=True)
-        query_builder.and_condition("", "c.title IS NOT NULL", custom=True)
 
         return query_builder
 

@@ -89,30 +89,28 @@ class PublicationQuery:
 
         publication_query.select(
             """
-            p.id AS "ID",
+            '' || p.id AS "ID",
             to_camel_case(p.title) AS "Title",
             CASE
-                WHEN p.publication_year < 1950 THEN '-'
+                WHEN p.publication_year < 1950 THEN ''
                 ELSE p.publication_year || ''
             END as "Year",
             p.publisher as "Publisher",
             p.authors AS "Authors",
-            CASE 
+            '' || CASE 
                 WHEN COUNT(j.id) > 0 THEN MODE() WITHIN GROUP (
                     ORDER BY COALESCE(NULLIF(REGEXP_REPLACE(j.sjr, '[^0-9.]', ''), ''), '0')
                 )
                 ELSE '0'
             END AS "Journal Score",
-            CASE WHEN j.q_rank IS NULL THEN 'N/A' ELSE j.q_rank END AS "Journal Rank",
-            CASE WHEN c.rank IS NULL THEN 'N/A' ELSE c.rank END AS "Conference Rank"
+            j.q_rank AS "Journal Rank",
+            c.rank AS "Conference Rank"
             """
         )
 
         publication_query.group_by(
             "p.id", "p.title", "p.publication_year", "p.publisher, j.q_rank, c.rank"
         )
-        publication_query.and_condition("", "p.publication_year >= 1950", custom=True)
-        publication_query.and_condition("", "p.publication_year <= 2025", custom=True)
 
         return publication_query
 

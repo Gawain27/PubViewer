@@ -101,7 +101,7 @@ class GeneralTableOverview:
         Typically, we just render the skeleton or do a small initial fetch.
         """
         logger.info(f"Rendering table overview for '{self.table_title}' (table_id={self.table_id})")
-        store_query_builder(self.table_id, self.query_builder)
+        store_query_builder(self.table_id, self.query_builder, self.row_methods)
 
         # Optionally, we can fetch an initial page to show something by default:
         # or we can omit it and let the JavaScript fetch from /fetch_data

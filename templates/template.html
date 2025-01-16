@@ -146,14 +146,14 @@
                         if (row_method_data.hasOwnProperty(endpoint)) {
                             // Find the first numeric property key and its value
                             const firstNumericPropertyKey = Object.keys(row).find(
-                                key => typeof row[key] === 'number'
+                                key => !isNaN(Number(row[key]))
                             );
 
                             if (firstNumericPropertyKey !== undefined) {
                                 const firstNumericPropertyValue = row[firstNumericPropertyKey];
 
                                 tdActions.innerHTML +=
-                                    `<a href="${endpoint}?value=${firstNumericPropertyValue}" class="btn btn-sm btn-primary me-1">${row_method_data[endpoint]}</a>`;
+                                    `<a href="${endpoint}?${formatDictionary(row)}" class="btn btn-sm btn-primary me-1">${row_method_data[endpoint]}</a>`;
                             }
                         }
                     }
@@ -173,6 +173,17 @@
                 tableBody.appendChild(tr);
             }
             console.log("Done populating table")
+        }
+
+        function formatDictionary(dict) {
+            return Object.entries(dict)
+                .filter(([key, value]) => key !== null && value !== null) // Filter out null keys or values
+                .map(([key, value]) => {
+                    const formattedKey = key.split(" ").join("+");
+                    const formattedValue = value.split(" ").join("+");
+                    return `${formattedKey}=${formattedValue}`;
+                })
+                .join("&");
         }
     </script>
 </body>

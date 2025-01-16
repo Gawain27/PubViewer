@@ -15,7 +15,7 @@ from psycopg_pool import AsyncConnectionPool
 from quart import Quart, render_template, jsonify, request
 
 from com.gwngames.client.general.GeneralDetailOverview import GeneralDetailOverview
-from com.gwngames.client.general.GeneralTableCache import get_query_builder
+from com.gwngames.client.general.GeneralTableCache import get_query_builder, get_row_methods
 from com.gwngames.client.general.GeneralTableOverview import GeneralTableOverview
 from com.gwngames.config.Context import Context
 from com.gwngames.server.entity.base.Author import Author
@@ -128,8 +128,8 @@ async def start_client():
         global pool
         author_count_query = QueryBuilder(pool, GoogleScholarAuthor.__tablename__, 'g', cache_results=False).select('COUNT(*)')
         publication_key_query = QueryBuilder(pool, GoogleScholarPublication.__tablename__, 'g', cache_results=False).select('g.publication_key').group_by("g.publication_key")
-        publication_count_query = (QueryBuilder(pool, "("+publication_key_query.build_query_string()+")", 'q', cache_results=False)
-                                   .select('COUNT(*)'))
+        publication_count_query = QueryBuilder(pool, "(" + publication_key_query.build_query_string() + ")", 'q',
+                                               cache_results=False).select('COUNT(*)')
 
         author_count_result = await author_count_query.execute()
         publication_count_result = await publication_count_query.execute()
@@ -651,12 +651,22 @@ async def fetch_data():
     if not qb:
         return jsonify({"error": "Invalid or expired table_id"}), 404
 
+    row_methods = get_row_methods(table_id)
+    if not row_methods:
+        return jsonify({"error": "Invalid or expired table_id"}), 404
+
     order_type = request.args.get("order_type")
     order_column = request.args.get("order_column")
 
     if order_column != "" and order_type != "":
-        qb.order_by_clauses = []
-        qb.current_order_cond = order_column
+        qb.offset_value = None
+        qb.limit_value = None
+        params = qb.parameters
+        qb = QueryBuilder(ctx.get_pool(), f"({qb.build_query_string()})", "ordered")
+        qb.select("*")
+        qb.parameters = params
+        qb.and_condition("", f"\"{order_column}\" IS NOT NULL", custom=True)
+        qb.and_condition("", f"\"{order_column}\" != ''", custom=True)
         handle_order_by(qb, order_column, order_type)
 
     form = await request.form
@@ -681,7 +691,8 @@ async def fetch_data():
         "rows": rows,
         "offset": offset,
         "limit": limit,
-        "total_count": total_count
+        "total_count": total_count,
+        "row_methods": row_methods
     })
 
 

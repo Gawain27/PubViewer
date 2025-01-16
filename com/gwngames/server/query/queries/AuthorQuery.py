@@ -144,7 +144,7 @@ class AuthorQuery:
                 ai.author_id,
                 COALESCE(
                     STRING_AGG(DISTINCT to_camel_case(i.name), ', '),
-                    'N/A'
+                    ''
                 ) AS interests
             """)
             .group_by("ai.author_id")
@@ -159,7 +159,7 @@ class AuthorQuery:
                 pa.author_id,
                 CASE 
                     WHEN COUNT(c.rank) > 0 THEN MODE() WITHIN GROUP (ORDER BY c.rank)
-                    ELSE '-'
+                    ELSE ''
                 END AS freq_conf_rank
             """)
             .group_by("pa.author_id")
@@ -174,7 +174,7 @@ class AuthorQuery:
                 pa.author_id,
                 CASE 
                     WHEN COUNT(j.q_rank) > 0 THEN MODE() WITHIN GROUP (ORDER BY j.q_rank)
-                    ELSE '-'
+                    ELSE ''
                 END AS freq_journal_rank
             """)
             .group_by("pa.author_id")
@@ -217,7 +217,7 @@ class AuthorQuery:
             .with_cte("avg_sjr_score", avg_sjr_score_qb)
 
         main_qb.select("""
-            ab.id                  AS "Author ID",
+            '' || ab.id                  AS "Author ID",
             to_camel_case(ab.name) AS "Name",
             CASE
                WHEN ab.role = '?' THEN ab.organization
@@ -225,9 +225,9 @@ class AuthorQuery:
             END                    AS "Organization",
             ab.image_url           AS "Image url",
             i.interests            AS "Interests",
-            CASE WHEN fc.freq_conf_rank IS NOT NULL THEN fc.freq_conf_rank ELSE 'N/A' END     AS "Frequent Conf. Rank",
-            CASE WHEN fj.freq_journal_rank IS NOT NULL THEN fj.freq_journal_rank ELSE 'N/A' END   AS "Frequent Journal Rank",
-            CASE WHEN asjr.avg_sjr_score IS NOT NULL THEN asjr.avg_sjr_score ELSE 0 END     AS "Avg. SJR Score"
+            CASE WHEN fc.freq_conf_rank IS NOT NULL THEN fc.freq_conf_rank ELSE '' END     AS "Frequent Conf. Rank",
+            CASE WHEN fj.freq_journal_rank IS NOT NULL THEN fj.freq_journal_rank ELSE '' END   AS "Frequent Journal Rank",
+            '' || CASE WHEN asjr.avg_sjr_score IS NOT NULL THEN asjr.avg_sjr_score ELSE 0 END     AS "Avg. SJR Score"
         """)
 
         # Left joins to each of the other CTEs
