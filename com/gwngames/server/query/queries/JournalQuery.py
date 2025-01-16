@@ -25,6 +25,7 @@ class JournalQuery:
         """)
         query_builder.and_condition("", "j.q_rank IS NOT NULL", custom=True)
         query_builder.and_condition("", "j.title IS NOT NULL", custom=True)
+        query_builder.and_condition("", "j.year IS NOT NULL", custom=True)
         return query_builder
 
     @staticmethod
@@ -58,7 +59,6 @@ class JournalQuery:
             other=f"(VALUES {journal_ids})",
             join_alias="journ_id(id)",
             on_condition="p.journal_id = journ_id.id"
-
          #.and_condition(
           #  parameter="",
            # value=f"p.journal_id IN ({journal_ids})",

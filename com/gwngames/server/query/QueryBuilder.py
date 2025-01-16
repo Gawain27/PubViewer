@@ -34,6 +34,7 @@ class QueryBuilder:
         self.alias: str = alias
 
         # Query builder data
+        self.current_order_cond: str = None
         self.conditions: List[str] = []
         self.parameters: Dict[str, Any] = {}
         self.order_by_clauses: List[str] = []

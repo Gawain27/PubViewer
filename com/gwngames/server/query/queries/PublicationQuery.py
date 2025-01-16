@@ -111,6 +111,8 @@ class PublicationQuery:
         publication_query.group_by(
             "p.id", "p.title", "p.publication_year", "p.publisher, j.q_rank, c.rank"
         )
+        publication_query.and_condition("", "p.publication_year >= 1950", custom=True)
+        publication_query.and_condition("", "p.publication_year <= 2025", custom=True)
 
         return publication_query
 

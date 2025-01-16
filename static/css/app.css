@@ -441,13 +441,17 @@ text {
     transition: border-color 0.3s;
     display: flex;
     align-items: center;
-    padding: 0 10px;
+    padding: 0 60px 0 10px; /* Increased right padding to accommodate the clear button */
+    position: relative; /* still needed for absolutely positioned icons */
 }
 
 .select2-container--default .select2-selection--single .select2-selection__rendered {
     color: #333;
     line-height: normal;
     padding: 0 8px;
+    overflow: hidden; /* Ensures the text does not overlap */
+    text-overflow: ellipsis; /* Adds ellipsis for long text */
+    white-space: nowrap; /* Prevents text wrapping */
 }
 
 .select2-container--default .select2-selection--single .select2-selection__placeholder {
@@ -456,8 +460,35 @@ text {
 
 .select2-container--default .select2-selection--single .select2-selection__arrow {
     height: 100%;
-    right: 8px;
+    right: 10px;
     width: 16px;
+}
+
+/* Clear Button (moved to the right) */
+.select2-container--default .select2-selection--single .select2-selection__clear {
+    position: absolute;
+    /* Move from left to right */
+    right: 40px;
+    left: auto;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #aaa;
+    cursor: pointer;
+    font-size: 18px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    transition: color 0.3s, background-color 0.3s;
+}
+
+
+.select2-container--default .select2-selection--single .select2-selection__clear:hover {
+    color: red;
+    background-color: #f5f5f5;
 }
 
 /* Hover, focus states */

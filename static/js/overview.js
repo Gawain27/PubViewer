@@ -108,20 +108,11 @@ async function fetchData(orderType = "", orderColumn = "") {
     const url = `/fetch_data?table_id=${encodeURIComponent(tableId)}&order_type=${orderType}&order_column=${orderColumn}`;
     console.log("Fetching data from URL:", url);
     const loadingPopup = document.getElementById("loading-popup");
-    const loadingTimeSpan = document.getElementById("loading-time");
 
-    let elapsedTime = 0;
-    let timerInterval;
 
     try {
         // Show waiting signal
         loadingPopup.style.display = "block";
-        elapsedTime = 0;
-        loadingTimeSpan.textContent = elapsedTime.toString();
-        timerInterval = setInterval(() => {
-            elapsedTime++;
-            loadingTimeSpan.textContent = elapsedTime.toString();
-        }, 1000);
 
         const response = await fetch(url, {
             method: 'POST',
@@ -130,7 +121,6 @@ async function fetchData(orderType = "", orderColumn = "") {
         console.log("Response status:", response.status);
 
         loadingPopup.style.display = "none";
-        clearInterval(timerInterval); // Stop the timer
 
         if (!response.ok) {
             throw new Error(`HTTP error! Status: ${response.status}`);

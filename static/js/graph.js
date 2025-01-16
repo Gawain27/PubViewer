@@ -1,8 +1,6 @@
 // ======================================================
 // Configurations
 // ======================================================
-var concatenatedIds = "";
-
 const FORCE_SETTINGS = {
     linkStrength: 2,
     chargeStrength: -750,
@@ -94,7 +92,7 @@ function getLinkColor(link, selectedConfRank, selectedJournRank, isLinkFilter) {
 // Updates the dropdown labels with graph nodes
 // ======================================================
 
-function updateNodeDropdown(selectedNodeId) {
+function updateNodeDropdown() {
   console.log("Starting dropdown update...");
 
   const nodeLabelDropdown = master_document.getElementById("node-label");
@@ -104,33 +102,36 @@ function updateNodeDropdown(selectedNodeId) {
   }
 
   // Convert the dropdown’s current options to an Array for easy searching
-  const existingOptions = Array.from(nodeLabelDropdown.options);
-  console.log("Existing options:", existingOptions.map(opt => ({ value: opt.value, text: opt.text })));
+  const existingOptions = $('#node-label').val();
+  console.log("Existing options:", existingOptions);
 
   // Add options that do not already exist in the dropdown
   graphData.nodes.forEach(({ id, label }) => {
-    const alreadyExists = existingOptions.some(opt => opt.value === id);
+    const alreadyExists = existingOptions.some(opt => {
+        console.log("id: " + id.toString() + " - label: " + label.toString() + " - " + opt.toString() === id.toString());
+    });
     if (!alreadyExists) {
       console.log(`Adding new option: id=${id}, label=${label}`);
       const newOption = master_document.createElement("option");
       newOption.value = id;
-      newOption.textContent = label;
+      newOption.textContent = "  " + label;
       nodeLabelDropdown.appendChild(newOption);
     }
   });
 
-  // Set the selected option to the provided selectedNodeId if it exists
-  const matchingOption = Array.from(nodeLabelDropdown.options).find(opt => opt.value === selectedNodeId);
-  if (matchingOption) {
-    console.log(`Found matching option for selectedNodeId=${selectedNodeId}, selecting it.`);
-    nodeLabelDropdown.value = selectedNodeId;
-  } else {
-    console.warn(`No matching option found for selectedNodeId=${selectedNodeId}, leaving selection unchanged.`);
-  }
+  // Remove duplicate options
+  const seenIds = new Set();
+  Array.from(nodeLabelDropdown.options).forEach(option => {
+    if (seenIds.has(option.value)) {
+      console.log(`Removing duplicate option with id=${option.value}`);
+      nodeLabelDropdown.removeChild(option);
+    } else {
+      seenIds.add(option.value);
+    }
+  });
 
   console.log("Dropdown update complete.");
 }
-
 
 // ======================================================
 // Merges new nodes/links into existing graph data
@@ -151,6 +152,12 @@ function mergeGraphData(newNodes, newLinks, weakNewLinks) {
                 (gLink.source === link.source && gLink.target === link.target) ||
                 (gLink.source === link.target && gLink.target === link.source)
         );
+    const weakLinkExists = (link) =>
+        graphData.weak_links.some(
+            (gLink) =>
+                (gLink.source === link.source && gLink.target === link.target) ||
+                (gLink.source === link.target && gLink.target === link.source)
+        );
 
     // Add nodes
     newNodes.forEach((node) => {
@@ -167,10 +174,24 @@ function mergeGraphData(newNodes, newLinks, weakNewLinks) {
     });
 
     weakNewLinks.forEach((link) => {
-        if (!linkExists(link)) {
-            graphData.weak_links.push(link);
+        if (!weakLinkExists(link)) {
+            const sourceNode = graphData.nodes.find((node) => node.id === link.source);
+            const targetNode = graphData.nodes.find((node) => node.id === link.target);
+            if (sourceNode && targetNode) {
+                // Replace numeric IDs with full objects
+                graphData.weak_links.push({
+                    ...link,
+                    source: sourceNode,
+                    target: targetNode,
+                });
+            } else {
+                console.warn(
+                    `Weak link source or target node not found in graphData.nodes. Source: ${link.source}, Target: ${link.target}`
+                );
+            }
         }
     });
+
 
     console.log("Merge complete. Updated graph data:", graphData);
 }
@@ -541,19 +562,8 @@ function showNodePopup(nodeData, x, y) {
     tableBody.innerHTML = '';
 
     const loadingPopup = document.getElementById("loading-popup");
-    const loadingTimeSpan = document.getElementById("loading-time");
-
-    let elapsedTime = 0;
-    let timerInterval;
 
     loadingPopup.style.display = "block";
-    elapsedTime = 0;
-    loadingTimeSpan.textContent = elapsedTime.toString();
-    timerInterval = setInterval(() => {
-        elapsedTime++;
-        loadingTimeSpan.textContent = elapsedTime.toString();
-    }, 1000);
-
 
     fetch("/fetch-author-detail", {
         method: "POST",
@@ -581,7 +591,6 @@ function showNodePopup(nodeData, x, y) {
         .finally(() => {
             if (loadingPopup != null){
                 loadingPopup.style.display = "none";
-                clearInterval(timerInterval); // Stop the timer
             }
         });
 }
@@ -644,8 +653,7 @@ document.getElementById("zoom-out-btn").addEventListener("click", () => {
 // ======================================================
 // Handles Graph API call
 // ======================================================
-function fetchGraphData(selectedNodeId, depth, conferenceRank, journalRank, fromYear, toYear, loadingPopup, timerInterval, render = true, init = false){
-    let last_selected;
+function fetchGraphData(selectedNodeId, depth, conferenceRank, journalRank, fromYear, toYear, loadingPopup, render = true, init = false){
     fetch("/generate-graph", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -655,7 +663,7 @@ function fetchGraphData(selectedNodeId, depth, conferenceRank, journalRank, from
             conference_rank: conferenceRank,
             journal_rank: journalRank,
             from_year: fromYear,
-            to_year: toYear,
+            to_year: toYear
         }),
     })
         .then((response) => response.json())
@@ -663,27 +671,20 @@ function fetchGraphData(selectedNodeId, depth, conferenceRank, journalRank, from
             console.log("API response received:", { nodes, links, weak_links });
             mergeGraphData(nodes, links, weak_links);
             updatePubCount(conferenceRank, journalRank, fromYear, toYear);
-            let split_ids = selectedNodeId.split(',');
-            if (init === true){
-                for (let id in split_ids){
-                    updateNodeDropdown(id);
-                    last_selected = id;
-                }
-            }
+            updateNodeDropdown()
             if (render === true) {
                 setTimeout(async () => {
                     renderGraph(conferenceRank, journalRank);
                 }, 1000);
             }
 
-            prev_id = last_selected;
+            prev_id = selectedNodeId;
             prev_depth = depth;
         })
         .catch((error) => console.error("Error during graph generation:", error))
         .finally(() => {
             if (loadingPopup != null){
                 loadingPopup.style.display = "none";
-                clearInterval(timerInterval); // Stop the timer
             }
             if (init){
                 const loadingPopup = document.getElementById("loading-popup");
@@ -701,15 +702,6 @@ function clearGraph(){
     graphData.weak_links.length = 0;
     const svg = d3.select("svg");
     svg.selectAll("*").remove();
-    setTimeout(
-        async () => {
-            graphData.links.length = 0;
-            graphData.nodes.length = 0;
-            graphData.weak_links.length = 0;
-            const svg = d3.select("svg");
-            svg.selectAll("*").remove();
-        }, 1100
-    )
 }
 
 document.getElementById("graph-form").addEventListener("submit", function (event) {
@@ -717,20 +709,12 @@ document.getElementById("graph-form").addEventListener("submit", function (event
     console.log("Form submission intercepted.");
 
     const formData = new FormData(event.target);
-    const selectedNodeId = formData.get("node_label");
+    const selectedNodeId = $('#node-label').val();
     const depth = formData.get("depth");
     const conferenceRank = formData.get("conference_rank");
     const journalRank = formData.get("journal_rank");
     const fromYear = formData.get("from_year");
     const toYear = formData.get("to_year");
-
-    let list = concatenatedIds.split(",");
-
-    if (!list.includes(selectedNodeId.toString())) {
-        list.push(selectedNodeId.toString());
-    }
-
-    concatenatedIds = list.join(",");
 
     console.log("Form data extracted:", {
         selectedNodeId,
@@ -742,12 +726,10 @@ document.getElementById("graph-form").addEventListener("submit", function (event
     });
 
     const loadingPopup = document.getElementById("loading-popup");
-    const loadingTimeSpan = document.getElementById("loading-time");
 
-    let elapsedTime = 0;
-    let timerInterval;
+    let selected = selectedNodeId.join(",");
 
-    if (prev_id === selectedNodeId && prev_depth === depth) {
+    if (prev_id === selected && prev_depth === depth) {
         console.log("Skipping API call as prev_id and prev_depth match selectedNodeId and depth.");
         updatePubCount(conferenceRank, journalRank, fromYear, toYear);
         setTimeout(async () => {
@@ -760,14 +742,8 @@ document.getElementById("graph-form").addEventListener("submit", function (event
 
         // Show the loading popup and start the timer
         loadingPopup.style.display = "block";
-        elapsedTime = 0;
-        loadingTimeSpan.textContent = elapsedTime.toString();
-        timerInterval = setInterval(() => {
-            elapsedTime++;
-            loadingTimeSpan.textContent = elapsedTime.toString();
-        }, 1000);
 
-        fetchGraphData(selectedNodeId, depth, conferenceRank, journalRank, fromYear, toYear, loadingPopup, timerInterval);
+        fetchGraphData(selected, depth, conferenceRank, journalRank, fromYear, toYear, loadingPopup);
     }
 });
 
@@ -787,41 +763,61 @@ document.addEventListener("DOMContentLoaded", () => {
 // ======================================================
 // Initialize dropdown and basic graph on page load
 // ======================================================
-function initGraph(timerInterval, init_ids) {
-    concatenatedIds = init_ids
+function initGraph(init_ids) {
     try {
         // Make a single request with all option values concatenated
-        fetchGraphData(init_ids, 1, "", "", "", "", null, null, false);
+        fetchGraphData(init_ids, 1, "", "", "", "", null, false);
         console.log("Graph initialization request sent for all options.");
     } catch (error) {
         console.error("Error during graph initialization:", error);
     } finally {
         // generate graph data for the last id, just for rendering, it won't get generated twice and query is small
 
-        const lastOptionValue = init_ids.split(',').slice(-1)[0]
         setTimeout(async () => {
-            fetchGraphData(lastOptionValue, 1, null, null, null, null, null, null, true, true);
-            clearInterval(timerInterval)
+            fetchGraphData(init_ids, 1, null, null, null, null, null, true, true);
         }, 500);
     }
 }
 
-
 window.onload = function () {
     console.log("Initializing dropdown on page load...");
 
-    let init_ids = startIds.join(',')
+    let init_ids = startIds.join(',');
+    let init_labels = startLabels.join(',');
     init_ids = init_ids.replaceAll("(", "").replaceAll(")", "");
 
-    $(document).ready(function() {
+    // Function to convert string to title case
+    const toTitleCase = (str) => {
+        return str
+            .toLowerCase()
+            .replace(/\b\w/g, (char) => char.toUpperCase());
+    };
+
+    // Convert init_labels to title case
+    let titleCasedLabels = init_labels
+        .split(',')
+        .map(label => toTitleCase(label));
+
+    let idArray = init_ids.split(',');
+    let labelArray = titleCasedLabels;
+
+    $(document).ready(function () {
         $('#node-label').select2({
             placeholder: 'Select a label...',
             allowClear: true
         });
+
+        // Populate the select element
+        const selectElement = $('#node-label');
+        idArray.forEach((id, index) => {
+            const label = "  "+labelArray[index] || ''; // Handle cases where lengths might differ
+            selectElement.append(new Option(label, id, true, true)); // Select option by default
+        });
+
+        selectElement.trigger('change'); // Trigger the change event for select2
     });
 
     setTimeout(async () => {
-        const loadingTimeSpan = document.getElementById("loading-time");
         const loadingPopup = document.getElementById("loading-popup");
         if (!loadingPopup) {
             console.error("loadingPopup not found!");
@@ -829,17 +825,12 @@ window.onload = function () {
 
         // Show the loading popup and start the timer
         loadingPopup.style.display = "block";
-        let elapsedTime = 0;
-        loadingTimeSpan.textContent = elapsedTime.toString();
-        let timerInterval = setInterval(() => {
-            elapsedTime++;
-            loadingTimeSpan.textContent = elapsedTime.toString();
-        }, 1000);
 
-        initGraph(timerInterval, init_ids);
+        initGraph(init_ids);
         console.log("Graph initialization script has finished.");
     }, 500);
 };
+
 
 
 

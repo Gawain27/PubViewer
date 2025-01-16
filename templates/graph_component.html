@@ -2,10 +2,10 @@
       style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; font-family: Arial, sans-serif; margin: 20px; line-height: 1.6; align-items: center;">
 
     <div class="form-group" style="width: 100%;">
-        <label for="node-label" style="font-weight: bold; margin-bottom: 5px; display: block;">Start Node Label:</label>
+        <label for="node-label" style="font-weight: bold; margin-bottom: 5px; display: block;">Root Authors:</label>
 
         <!-- Instead of a separate filter <input>, we'll rely on Select2's built-in search -->
-        <select id="node-label" name="node_label"
+        <select id="node-label" name="node_label[]" multiple
                 style="padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
         </select>
     </div>

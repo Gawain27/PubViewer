@@ -128,7 +128,8 @@ async def start_client():
         global pool
         author_count_query = QueryBuilder(pool, GoogleScholarAuthor.__tablename__, 'g', cache_results=False).select('COUNT(*)')
         publication_key_query = QueryBuilder(pool, GoogleScholarPublication.__tablename__, 'g', cache_results=False).select('g.publication_key').group_by("g.publication_key")
-        publication_count_query = QueryBuilder(pool, "("+publication_key_query.build_query_string()+")", 'q', cache_results=False).select('COUNT(*)')
+        publication_count_query = (QueryBuilder(pool, "("+publication_key_query.build_query_string()+")", 'q', cache_results=False)
+                                   .select('COUNT(*)'))
 
         author_count_result = await author_count_query.execute()
         publication_count_result = await publication_count_query.execute()
@@ -655,6 +656,7 @@ async def fetch_data():
 
     if order_column != "" and order_type != "":
         qb.order_by_clauses = []
+        qb.current_order_cond = order_column
         handle_order_by(qb, order_column, order_type)
 
     form = await request.form
@@ -702,7 +704,7 @@ async def generate_graph():
 
         numbers = start_author_id.split(',')
         start_author_id = ','.join(f"({num})" for num in numbers)
-        sql_authors = await (QueryBuilder(ctx.get_pool(), Author.__tablename__, 'a').select('a.id, a.name, a.image_url')
+        sql_authors = await (QueryBuilder(ctx.get_pool(), Author.__tablename__, 'a').select('a.id, to_camel_case(a.name) as "name", a.image_url')
                              #.and_condition("", f"a.id IN ({start_author_id})", custom=True)
                             .join("INNER", f"(VALUES {start_author_id})", "id_author(id)", on_condition="a.id = id_author.id")
                              .execute())
@@ -982,6 +984,8 @@ async def generate_graph():
             if link["source"] in discovered and link["target"] in discovered
         ]
 
+        app.logger.info(links)
+        app.logger.info(weak_links)
         return jsonify({"nodes": list(nodes.values()), "links": links, "weak_links": weak_links})
 
     except Exception as e:

@@ -1,3 +1,5 @@
+from copy import deepcopy
+
 from com.gwngames.server.entity.base.Author import Author
 from com.gwngames.server.entity.base.Conference import Conference
 from com.gwngames.server.entity.base.Interest import Interest
@@ -125,6 +127,7 @@ class AuthorQuery:
             QueryBuilder(pool=session, table_name="author", alias="a")
             .join("INNER", "google_scholar_author", "gsa", on_condition="gsa.author_key = a.id")
             .select("""
+                DISTINCT ON (a.id)
                 a.id,
                 a.name,
                 a.role,
@@ -214,7 +217,6 @@ class AuthorQuery:
             .with_cte("avg_sjr_score", avg_sjr_score_qb)
 
         main_qb.select("""
-            DISTINCT ON (ab.id)
             ab.id                  AS "Author ID",
             to_camel_case(ab.name) AS "Name",
             CASE

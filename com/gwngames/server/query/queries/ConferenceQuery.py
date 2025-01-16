@@ -19,6 +19,8 @@ class ConferenceQuery:
 """)
         query_builder.and_condition("", "c.rank IS NOT NULL", custom=True)
         query_builder.and_condition("", "c.acronym IS NOT NULL", custom=True)
+        query_builder.and_condition("", "c.title IS NOT NULL", custom=True)
+
         return query_builder
 
     @staticmethod
