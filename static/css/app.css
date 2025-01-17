@@ -602,6 +602,12 @@ input[type="checkbox"].row-checkbox:checked::after {
 }
 
 /* Graph filter checkbox */
+.graph-filter-container {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
 .filter_type_graph label {
     display: inline-block;
     padding: 10px 20px;

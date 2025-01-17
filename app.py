@@ -709,7 +709,6 @@ async def generate_graph():
         authors_seen = set()
         authors_to_query = start_author_id.split(',')
         edges = []
-        nodes = {}
 
         # 0 - Starting authors info (in case of no results)
 
@@ -793,57 +792,58 @@ async def generate_graph():
                     row["end_author_image_url"]
                 )
             )
-        # -----------------------
 
-        # 1) Minimal node info
+        # ---------------------------------------------------
+        # 2) Minimal node info + adjacency + edge data maps
+        # ---------------------------------------------------
+        nodes = {}
         for author in sql_authors:
             if author["id"] not in nodes:
                 nodes[author["id"]] = {
                     "id": author["id"],
                     "label": author["name"],
                     "image": author["image_url"],
+                    "is_root": True
                 }
 
-        # ---------------------------------------------------
-        # 1a) Build an adjacency list instead of direct links
-        # ---------------------------------------------------
-        # Also keep a dictionary to remember the (s_id, e_id)-level data for later
+        # adjacency list
         adj_list = defaultdict(list)
 
-        # We'll store all edge data in a dictionary keyed by a frozenset or sorted tuple,
-        # since the edges are undirected. We'll retrieve it later to build links.
+        # We'll store all edge data in a dictionary keyed by a sorted tuple
+        # For instance pair_key = (min_id, max_id)
         edge_data_map = {}
+
+        # Ingest strong edges
         for (s_id, s_label, s_img, e_id, e_label, e_img) in edges:
-            # Add adjacency (undirected)
             adj_list[s_id].append(e_id)
             adj_list[e_id].append(s_id)
 
-            # If a node is missing from 'nodes', add minimal info
+            # If a node is missing, add minimal info
             if s_id not in nodes:
                 nodes[s_id] = {"id": s_id, "label": s_label, "image": s_img or ""}
             if e_id not in nodes:
                 nodes[e_id] = {"id": e_id, "label": e_label, "image": e_img or ""}
 
-            # We'll use a sorted tuple as the key, e.g. (min, max)
             pair_key = tuple(sorted((s_id, e_id)))
             edge_data_map[pair_key] = (s_id, s_label, s_img, e_id, e_label, e_img)
 
+        # Ingest weak edges
         for (s_id, s_label, s_img, e_id, e_label, e_img) in weak_edges:
             if s_id in nodes and e_id in nodes:
-                # Add adjacency (undirected)
                 adj_list[s_id].append(e_id)
                 adj_list[e_id].append(s_id)
 
-                # We'll use a sorted tuple as the key, e.g. (min, max)
                 pair_key = tuple(sorted((s_id, e_id)))
                 edge_data_map[pair_key] = (s_id, s_label, s_img, e_id, e_label, e_img)
 
         # ------------------------------------------
-        # 2) Fetch publication info (ranks, years)
+        # 3) Fetch publication info (ranks, years)
         # ------------------------------------------
         all_edges = deepcopy(edges)
         all_edges.extend(weak_edges)
-        unique_pairs = set(tuple(sorted((s_id, e_id))) for (s_id, _, _, e_id, _, _) in all_edges)
+        unique_pairs = set(
+            tuple(sorted((s_id, e_id))) for (s_id, _, _, e_id, _, _) in all_edges
+        )
 
         pair_to_ranks_freq = {}
         pair_to_years_freq = {}
@@ -864,113 +864,150 @@ async def generate_graph():
                 for p, y_map in years_dict.items():
                     pair_to_years_freq[p] = y_map
 
-        # ------------------------------------------
-        # 3) Build "tree" links from sql_authors
-        # ------------------------------------------
-        links = []
-        weak_links = []
-        discovered = set()
-        queue = deque()
+        # --------------------------------------------------------
+        # 4) Build BFS trees separately for each root in sql_authors
+        # --------------------------------------------------------
+        root_ids = [a["id"] for a in sql_authors]
 
-        # Enqueue all root authors and mark as discovered
-        for author in sql_authors:
-            root_id = author["id"]
+        # This will store "tree edges" discovered by BFS from each root
+        # Key: root_id => set of discovered edges (as sorted tuple)
+        per_root_tree_edges = defaultdict(set)
+
+        # Track how many BFS runs discovered each node
+        node_discovery_count = defaultdict(int)
+        global_discovered = set()
+
+        # For BFS from each author:
+        for root_id in root_ids:
+            # BFS queue and discovered set
+            discovered = set()
+            queue = deque()
+
             discovered.add(root_id)
+            global_discovered.add(root_id)
             queue.append(root_id)
+            node_discovery_count[root_id] += 1  # discovered by BFS from root_id
 
-        while queue:
-            current_id = queue.popleft()
+            while queue:
+                current_id = queue.popleft()
 
-            # For each neighbor in adjacency list
-            for neighbor_id in adj_list[current_id]:
-                # Only create a link if the neighbor was not discovered yet
-                if neighbor_id not in discovered:
-                    discovered.add(neighbor_id)
-                    queue.append(neighbor_id)
+                for neighbor_id in adj_list[current_id]:
+                    # Special rule: If neighbor is also a root author
+                    # do NOT build a BFS tree edge here => that link
+                    # should end up in weak_links only.
+                    if neighbor_id in root_ids and neighbor_id != current_id:
+                        continue
 
-                    # Retrieve the edge data from our stored map
-                    pair_key = tuple(sorted((current_id, neighbor_id)))
-                    (s_id, s_label, s_img, e_id, e_label, e_img) = edge_data_map[pair_key]
+                    if neighbor_id not in discovered:
+                        discovered.add(neighbor_id)
+                        global_discovered.add(neighbor_id)
+                        queue.append(neighbor_id)
+                        node_discovery_count[neighbor_id] += 1
 
-                    # Get publication/rank info
-                    rank_counts = pair_to_ranks_freq.get(pair_key, {})
-                    years_map = pair_to_years_freq.get(pair_key, {})
+                        # We have discovered an edge from current_id => neighbor_id
+                        pair_key = tuple(sorted((current_id, neighbor_id)))
+                        per_root_tree_edges[root_id].add(pair_key)
 
-                    conf_freq = {}
-                    jour_freq = {}
-                    unranked = 0
-                    for rank_str, cnt in rank_counts.items():
-                        if rank_str in ["A*", "A", "B", "C"]:
-                            conf_freq[rank_str] = conf_freq.get(rank_str, 0) + cnt
-                        elif rank_str in ["Q1", "Q2", "Q3", "Q4"]:
-                            jour_freq[rank_str] = jour_freq.get(rank_str, 0) + cnt
-                        else:
-                            unranked += cnt
+        # --------------------------------------------------------
+        # 5) Combine BFS-discovered edges and classify them
+        # --------------------------------------------------------
+        # All BFS edges across all roots
+        all_tree_edges = set()
+        for root_id, edge_set in per_root_tree_edges.items():
+            all_tree_edges.update(edge_set)
 
-                    best_conf = max(conf_freq, key=conf_freq.get) if conf_freq else "Unranked"
-                    best_jour = max(jour_freq, key=jour_freq.get) if jour_freq else "Unranked"
+        # We now want:
+        #   links, semi_weak_links, weak_links
+        links = []
+        semi_weak_links = []
+        weak_links = []
 
-                    link_obj = {
-                        "source": s_id,
-                        "target": e_id,
-                        "avg_conf_rank": best_conf,
-                        "avg_journal_rank": best_jour,
-                        "Unranked": unranked,
-                    }
-                    # Add year counts, etc.
-                    for yr, val in years_map.items():
-                        link_obj[str(yr)] = val
-                    for rank, val in conf_freq.items():
-                        link_obj[str(rank)] = val
-                    for rank, val in jour_freq.items():
-                        link_obj[str(rank)] = val
+        # --------------------------------------------------------
+        # 5a) Function to build the final edge object with pubs info
+        # --------------------------------------------------------
+        def build_edge_object(edge_pair_key):
+            (s_id_f, s_label_f, s_img_f, e_id_f, e_label_f, e_img_f) = edge_data_map[edge_pair_key]
+            rank_counts = pair_to_ranks_freq.get(edge_pair_key, {})
+            years_map = pair_to_years_freq.get(edge_pair_key, {})
 
-                    links.append(link_obj)
+            conf_freq = {}
+            jour_freq = {}
+            unranked = 0
+            for rank_str, cnt in rank_counts.items():
+                if rank_str in ["A*", "A", "B", "C"]:
+                    conf_freq[rank_str] = conf_freq.get(rank_str, 0) + cnt
+                elif rank_str in ["Q1", "Q2", "Q3", "Q4"]:
+                    jour_freq[rank_str] = jour_freq.get(rank_str, 0) + cnt
                 else:
-                    # Retrieve the edge data from our stored map
-                    pair_key = tuple(sorted((current_id, neighbor_id)))
-                    (s_id, s_label, s_img, e_id, e_label, e_img) = edge_data_map[pair_key]
+                    unranked += cnt
 
-                    # Get publication/rank info
-                    rank_counts = pair_to_ranks_freq.get(pair_key, {})
-                    years_map = pair_to_years_freq.get(pair_key, {})
+            best_conf = max(conf_freq, key=conf_freq.get) if conf_freq else "Unranked"
+            best_jour = max(jour_freq, key=jour_freq.get) if jour_freq else "Unranked"
 
-                    conf_freq = {}
-                    jour_freq = {}
-                    unranked = 0
-                    for rank_str, cnt in rank_counts.items():
-                        if rank_str in ["A*", "A", "B", "C"]:
-                            conf_freq[rank_str] = conf_freq.get(rank_str, 0) + cnt
-                        elif rank_str in ["Q1", "Q2", "Q3", "Q4"]:
-                            jour_freq[rank_str] = jour_freq.get(rank_str, 0) + cnt
-                        else:
-                            unranked += cnt
+            link_obj = {
+                "source": s_id_f,
+                "target": e_id_f,
+                "avg_conf_rank": best_conf,
+                "avg_journal_rank": best_jour,
+                "Unranked": unranked,
+            }
+            # Add year counts, etc.
+            for yr, val in years_map.items():
+                link_obj[str(yr)] = val
+            for rank, val in conf_freq.items():
+                link_obj[str(rank)] = val
+            for rank, val in jour_freq.items():
+                link_obj[str(rank)] = val
 
-                    best_conf = max(conf_freq, key=conf_freq.get) if conf_freq else "Unranked"
-                    best_jour = max(jour_freq, key=jour_freq.get) if jour_freq else "Unranked"
+            return link_obj
 
-                    link_obj = {
-                        "source": s_id,
-                        "target": e_id,
-                        "avg_conf_rank": best_conf,
-                        "avg_journal_rank": best_jour,
-                        "Unranked": unranked,
-                    }
-                    # Add year counts, etc.
-                    for yr, val in years_map.items():
-                        link_obj[str(yr)] = val
-                    for rank, val in conf_freq.items():
-                        link_obj[str(rank)] = val
-                    for rank, val in jour_freq.items():
-                        link_obj[str(rank)] = val
+        # --------------------------------------------------------
+        # 5b) Classify edges
+        # --------------------------------------------------------
+        # 5b.1) Edges that are between two roots => always in weak_links
+        root_id_set = set(root_ids)
 
-                    weak_links.append(link_obj)
+        # Helper to check if an edge is between two root authors
+        def is_between_roots(between_pair_key):
+            s_id_b, e_id_b = between_pair_key
+            return (s_id_b in root_id_set) and (e_id_b in root_id_set)
+
+        # We'll go through *every* known edge pair_key in edge_data_map
+        # and decide where it belongs.
+        for pair_key in edge_data_map.keys():
+            # 5b.2) If it's between two sql_authors => weak_links
+            if is_between_roots(pair_key):
+                edge_obj = build_edge_object(pair_key)
+                weak_links.append(edge_obj)
+                continue
+
+            # 5b.3) If the pair_key was discovered in BFS => it's a tree edge
+            if pair_key in all_tree_edges:
+                # Check if it is "semi_weak" or normal "link"
+                s_id, e_id = pair_key
+                c1 = node_discovery_count[s_id]
+                c2 = node_discovery_count[e_id]
+
+                if c1 > 1 or c2 > 1:
+                    # => semi_weak
+                    edge_obj = build_edge_object(pair_key)
+                    # set root_counts = max( #roots that discovered s_id , #roots that discovered e_id )
+                    edge_obj["root_counts"] = max(c1, c2)
+                    semi_weak_links.append(edge_obj)
+                else:
+                    # => normal BFS link
+                    edge_obj = build_edge_object(pair_key)
+                    links.append(edge_obj)
+            else:
+                # 5b.4) Not discovered by BFS => belongs to weak_links
+                edge_obj = build_edge_object(pair_key)
+                weak_links.append(edge_obj)
 
         # -------------------------------------------------------
-        # 4) Finalize node rankings only for discovered nodes
+        # 6) Finalize node rankings only for discovered nodes
         # -------------------------------------------------------
         # Filter down to discovered nodes only:
-        discovered_node_ids = list(discovered)  # we need them in a list for the query
+        discovered_node_ids = list(global_discovered)  # we need them in a list for the query
         total_nodes_ids_str = ','.join(f"({num})" for num in discovered_node_ids)
 
         nodes_full_data = await AuthorQuery.build_author_overview_query(pool).join(
@@ -979,7 +1016,7 @@ async def generate_graph():
 
         id_to_author_data = {x["Author ID"]: x for x in nodes_full_data}
 
-        for node_id in discovered:
+        for node_id in global_discovered:
             author_data = id_to_author_data.get(node_id)
             if author_data:
                 freq_conf_rank = author_data["Frequent Conf. Rank"]
@@ -987,17 +1024,18 @@ async def generate_graph():
                 nodes[node_id]["freq_conf_rank"] = freq_conf_rank
                 nodes[node_id]["freq_journal_rank"] = freq_jour_rank
 
-        nodes = {nid: ndata for nid, ndata in nodes.items() if nid in discovered}
+        nodes = {nid: ndata for nid, ndata in nodes.items() if nid in global_discovered}
 
         # Filter links so only edges where both endpoints are discovered
         links = [
             link for link in links
-            if link["source"] in discovered and link["target"] in discovered
+            if link["source"] in global_discovered and link["target"] in global_discovered
         ]
 
         app.logger.info(links)
+        app.logger.info(semi_weak_links)
         app.logger.info(weak_links)
-        return jsonify({"nodes": list(nodes.values()), "links": links, "weak_links": weak_links})
+        return jsonify({"nodes": list(nodes.values()), "links": links, "semi_weak_links": semi_weak_links, "weak_links": weak_links})
 
     except Exception as e:
         app.logger.error(f"Error: {e}")

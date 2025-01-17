@@ -57,13 +57,13 @@
     </div>
 
     <div class="form-group" style="width: 100%;">
-        <label for="from-year" style="font-weight: bold; margin-bottom: 5px; display: block;">From Year:</label>
+        <label for="from-year" style="font-weight: bold; margin-bottom: 5px; display: block;">Publications From Year:</label>
         <input type="number" id="from-year" name="from_year" placeholder="YYYY" min="1900" max="2100"
                style="padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
     </div>
 
     <div class="form-group" style="width: 100%;">
-        <label for="to-year" style="font-weight: bold; margin-bottom: 5px; display: block;">To Year:</label>
+        <label for="to-year" style="font-weight: bold; margin-bottom: 5px; display: block;">Publications To Year:</label>
         <input type="number" id="to-year" name="to_year" placeholder="YYYY" min="1900" max="2100"
                style="padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
     </div>
@@ -77,10 +77,11 @@
 </form>
 
 <h6 style="color: gray; font-style: italic;">
-    Right click a node to show an Author's details - If graph renders badly, click the "Show" button again. For heavily connected result sets, visibility is reduced - Consider applying filters.
+    Right click a node to show an Author's details - If graph renders badly, click the "Show" button again. For many roots and higher depths selected, loading times are higher.
     Simulation stops automatically when graph stabilizes.
 </h6>
 <h6 style="color: gray; font-style: italic;">
+    With many results, visibility is reduced - Consider applying filters.
     Thicker lines represent a higher amount of data available.
     The color represents the quality of the Conference/Journal(s) shared.
     Legend:
@@ -102,10 +103,17 @@
 </h6>
 
 <div id="graph-container" style="margin-top: 20px; background-color: whitesmoke">
-    <div class="filter_type_graph">
-        <label for="links-checkbox" id="filter-label">Filter Ranks By: Links</label>
-        <input type="checkbox" id="links-checkbox" name="links-checkbox" style="display: none;" checked>
+    <div class="graph-filter-container">
+        <div class="filter_type_graph">
+            <label for="links-checkbox" id="filter-label">Filter Ranks By: Links</label>
+            <input type="checkbox" id="links-checkbox" name="links-checkbox" style="display: none;" checked>
+        </div>
+        <div class="filter_type_graph">
+            <label for="graph-links-checkbox" id="graph-filter-label">Show Links: All</label>
+            <input type="checkbox" id="graph-links-checkbox" name="graph-links-checkbox" style="display: none;" checked>
+        </div>
     </div>
+
 
     <div class="zoom-buttons">
         <button id="zoom-in-btn">+</button>

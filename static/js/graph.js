@@ -19,10 +19,14 @@ const LINK_WIDTH_SCALE = d3.scaleLinear()
 // ======================================================
 // Global data
 // ======================================================
-let graphData = { nodes: [], links: [], weak_links: []};
+let graphData = { nodes: [], links: [], semi_weak_links: [], weak_links: []};
 let prev_id = 0;
 let prev_depth = 0;
+let prevConfRank = "";
+let prevJournalRank = "";
+let currentlySelected = "";
 let zoomBehavior;
+var showAll = true;
 
 // ======================================================
 // Utility: Color logic for ranks
@@ -47,16 +51,25 @@ function getJournColor(rank) {
     }
 }
 
-
-/**
- * Linearly blend two hex colors by 50/50
- */
 function blendColors(color1, color2) {
-    const c1 = d3.color(color1).rgb();
-    const c2 = d3.color(color2).rgb();
+    const colorOrder = ["#1E90FF", "#228B22", "#FFD700", "#FF8C00", "#FF4500"];
 
-    // For a simple 50/50 blend, just use d3.interpolateRgb
-    return d3.interpolateRgb(c1, c2)(0.5);
+    // Find the indices of the colors in the predefined order
+    const index1 = colorOrder.indexOf(color1);
+    const index2 = colorOrder.indexOf(color2);
+
+    // Determine highest and lowest color based on the order
+    const [highColor, lowColor] = index1 < index2
+        ? [color1, color2]
+        : [color2, color1];
+
+    // Generate 9 evenly spaced midpoints using d3.interpolateRgb
+    const midpoints = Array.from({ length: 9 }, (_, i) =>
+        d3.interpolateRgb(d3.color(highColor), d3.color(lowColor))((i + 1) / 10)
+    );
+
+    // Return the third midpoint (index 2, zero-based), giving the color of higher interest
+    return midpoints[2];
 }
 
 /**
@@ -102,13 +115,15 @@ function updateNodeDropdown() {
   }
 
   // Convert the dropdown’s current options to an Array for easy searching
-  const existingOptions = $('#node-label').val();
-  console.log("Existing options:", existingOptions);
+  const existingOptions = $('#node-label option').toArray();
 
   // Add options that do not already exist in the dropdown
   graphData.nodes.forEach(({ id, label }) => {
-    const alreadyExists = existingOptions.some(opt => {
-        console.log("id: " + id.toString() + " - label: " + label.toString() + " - " + opt.toString() === id.toString());
+    let alreadyExists = false;
+    existingOptions.forEach(option => {
+        if (option.value === id.toString()){
+            alreadyExists = true;
+        }
     });
     if (!alreadyExists) {
       console.log(`Adding new option: id=${id}, label=${label}`);
@@ -118,7 +133,7 @@ function updateNodeDropdown() {
       nodeLabelDropdown.appendChild(newOption);
     }
   });
-
+/*
   // Remove duplicate options
   const seenIds = new Set();
   Array.from(nodeLabelDropdown.options).forEach(option => {
@@ -129,7 +144,7 @@ function updateNodeDropdown() {
       seenIds.add(option.value);
     }
   });
-
+*/
   console.log("Dropdown update complete.");
 }
 
@@ -137,12 +152,11 @@ function updateNodeDropdown() {
 // Merges new nodes/links into existing graph data
 // while avoiding duplication
 // ======================================================
-function mergeGraphData(newNodes, newLinks, weakNewLinks) {
+function mergeGraphData(newNodes, newLinks, newSemiWeakLinks, weakNewLinks) {
     console.log("Merging new graph data...");
-    console.log("Existing nodes:", graphData.nodes);
-    console.log("Existing links:", graphData.links);
     console.log("New nodes:", newNodes);
     console.log("New links:", newLinks);
+    console.log("New semi-weak links:", newSemiWeakLinks);
     console.log("New weak links:", weakNewLinks);
 
     const alreadyExists = (arr, key) => arr.some((item) => item.id === key);
@@ -154,6 +168,12 @@ function mergeGraphData(newNodes, newLinks, weakNewLinks) {
         );
     const weakLinkExists = (link) =>
         graphData.weak_links.some(
+            (gLink) =>
+                (gLink.source === link.source && gLink.target === link.target) ||
+                (gLink.source === link.target && gLink.target === link.source)
+        );
+    const semiWeakLinkExists = (link) =>
+        graphData.semi_weak_links.some(
             (gLink) =>
                 (gLink.source === link.source && gLink.target === link.target) ||
                 (gLink.source === link.target && gLink.target === link.source)
@@ -170,6 +190,25 @@ function mergeGraphData(newNodes, newLinks, weakNewLinks) {
     newLinks.forEach((link) => {
         if (!linkExists(link)) {
             graphData.links.push(link);
+        }
+    });
+
+    newSemiWeakLinks.forEach((link) => {
+        if (!semiWeakLinkExists(link)) {
+            const sourceNode = graphData.nodes.find((node) => node.id === link.source);
+            const targetNode = graphData.nodes.find((node) => node.id === link.target);
+            if (sourceNode && targetNode) {
+                // Replace numeric IDs with full objects
+                graphData.semi_weak_links.push({
+                    ...link,
+                    source: sourceNode,
+                    target: targetNode,
+                });
+            } else {
+                console.warn(
+                    `Semi weak link source or target node not found in graphData.nodes. Source: ${link.source}, Target: ${link.target}`
+                );
+            }
         }
     });
 
@@ -196,10 +235,13 @@ function mergeGraphData(newNodes, newLinks, weakNewLinks) {
     console.log("Merge complete. Updated graph data:", graphData);
 }
 
-// ======================================================
-// Calculates pub_count for each link based on the new rules:
-// ======================================================
-function updatePubCount(conferenceRank, journalRank, fromYear, toYear) {
+function parseLinkPubCount(link, journalRank, conferenceRank, fromYear, toYear){
+    let yearSumAll = 0;
+    let yearSumInRange = 0;
+    let rankSum = 0;
+    // Get the current year to enforce the upper limit
+    const currentYear = new Date().getFullYear();
+
     const hasConferenceFilter = conferenceRank && conferenceRank.trim() !== "";
     const hasJournalFilter = journalRank && journalRank.trim() !== "";
     const userHasRankFilter = hasConferenceFilter || hasJournalFilter;
@@ -208,120 +250,71 @@ function updatePubCount(conferenceRank, journalRank, fromYear, toYear) {
     const toYearNum = toYear ? parseInt(toYear, 10) : NaN;
     const userHasYearFilter = (!isNaN(fromYearNum) || !isNaN(toYearNum));
 
-    // Get the current year to enforce the upper limit
-    const currentYear = new Date().getFullYear();
-
     // Helper to check if a property is within the valid range
     function isWithinYearRange(propKey) {
         const year = parseInt(propKey, 10);
         if (isNaN(year)) return false; // Not a numeric property
         if (year < 1950 || year > currentYear) return false; // Exclude out-of-range years
         if (!isNaN(fromYearNum) && year < fromYearNum) return false;
-        if (!isNaN(toYearNum) && year > toYearNum) return false;
-        return true;
+        return !(!isNaN(toYearNum) && year > toYearNum);
     }
 
-    graphData.links.forEach((link) => {
-        let yearSumAll = 0;
-        let yearSumInRange = 0;
-        let rankSum = 0;
+    Object.keys(link).forEach((propKey) => {
+        if (propKey === "source" || propKey === "target") return;
 
-        Object.keys(link).forEach((propKey) => {
-            if (propKey === "source" || propKey === "target") return;
+        if (!isNaN(parseInt(propKey, 10))) {
+            const val = link[propKey];
+            if (typeof val === "number" && propKey >= "1950" && propKey <= currentYear.toString()) {
+                yearSumAll += val;
 
-            if (!isNaN(parseInt(propKey, 10))) {
-                const val = link[propKey];
-                if (typeof val === "number" && propKey >= "1950" && propKey <= currentYear.toString()) {
-                    yearSumAll += val;
-
-                    if (userHasYearFilter && isWithinYearRange(propKey)) {
-                        yearSumInRange += val;
-                    }
-                }
-            } else {
-                if (userHasRankFilter) {
-                    if (hasConferenceFilter && propKey === conferenceRank) {
-                        const val = link[propKey];
-                        if (typeof val === "number") rankSum += val;
-                    }
-                    if (hasJournalFilter && propKey === journalRank) {
-                        const val = link[propKey];
-                        if (typeof val === "number") rankSum += val;
-                    }
+                if (userHasYearFilter && isWithinYearRange(propKey)) {
+                    yearSumInRange += val;
                 }
             }
-        });
-
-        if (!userHasYearFilter) {
-            yearSumInRange = yearSumAll;
-        }
-
-        let pubCount;
-        if (!userHasRankFilter && !userHasYearFilter) {
-            pubCount = yearSumAll;
-        } else if (userHasRankFilter && !userHasYearFilter) {
-            pubCount = Math.round(rankSum / 1.5);
-            pubCount = Math.min(pubCount, yearSumAll);
-        } else if (!userHasRankFilter && userHasYearFilter) {
-            pubCount = yearSumInRange;
         } else {
-            pubCount = Math.round((rankSum + yearSumInRange) / 2);
-        }
-
-        link.pub_count = pubCount;
-    });
-
-    graphData.weak_links.forEach((link) => {
-        let yearSumAll = 0;
-        let yearSumInRange = 0;
-        let rankSum = 0;
-
-        Object.keys(link).forEach((propKey) => {
-            if (propKey === "source" || propKey === "target") return;
-
-            if (!isNaN(parseInt(propKey, 10))) {
-                const val = link[propKey];
-                if (typeof val === "number" && propKey >= "1950" && propKey <= currentYear.toString()) {
-                    yearSumAll += val;
-
-                    if (userHasYearFilter && isWithinYearRange(propKey)) {
-                        yearSumInRange += val;
-                    }
+            if (userHasRankFilter) {
+                if (hasConferenceFilter && propKey === conferenceRank) {
+                    const val = link[propKey];
+                    if (typeof val === "number") rankSum += val;
                 }
-            } else {
-                if (userHasRankFilter) {
-                    if (hasConferenceFilter && propKey === conferenceRank) {
-                        const val = link[propKey];
-                        if (typeof val === "number") rankSum += val;
-                    }
-                    if (hasJournalFilter && propKey === journalRank) {
-                        const val = link[propKey];
-                        if (typeof val === "number") rankSum += val;
-                    }
+                if (hasJournalFilter && propKey === journalRank) {
+                    const val = link[propKey];
+                    if (typeof val === "number") rankSum += val;
                 }
             }
-        });
-
-        if (!userHasYearFilter) {
-            yearSumInRange = yearSumAll;
         }
-
-        let pubCount;
-        if (!userHasRankFilter && !userHasYearFilter) {
-            pubCount = yearSumAll;
-        } else if (userHasRankFilter && !userHasYearFilter) {
-            pubCount = Math.round(rankSum / 1.5);
-            pubCount = Math.min(pubCount, yearSumAll);
-        } else if (!userHasRankFilter && userHasYearFilter) {
-            pubCount = yearSumInRange;
-        } else {
-            pubCount = Math.round((rankSum + yearSumInRange) / 2);
-        }
-
-        link.pub_count = pubCount;
     });
+
+    if (!userHasYearFilter) {
+        yearSumInRange = yearSumAll;
+    }
+
+    let pubCount;
+    if (!userHasRankFilter && !userHasYearFilter) {
+        pubCount = yearSumAll;
+    } else if (userHasRankFilter && !userHasYearFilter) {
+        pubCount = Math.round(rankSum / 1.5);
+        pubCount = Math.min(pubCount, yearSumAll);
+    } else if (!userHasRankFilter && userHasYearFilter) {
+        pubCount = yearSumInRange;
+    } else {
+        pubCount = Math.round((rankSum + yearSumInRange) / 2);
+    }
+
+    link.pub_count = pubCount;
+}
+
+// ======================================================
+// Calculates pub_count for each link based on the rules of parseLinkPubCount:
+// ======================================================
+function updatePubCount(conferenceRank, journalRank, fromYear, toYear) {
+
+    graphData.links.forEach((link) => parseLinkPubCount(link, journalRank, conferenceRank, fromYear, toYear));
+    graphData.semi_weak_links.forEach((link) => parseLinkPubCount(link, journalRank, conferenceRank, fromYear, toYear));
+    graphData.weak_links.forEach((link) => parseLinkPubCount(link, journalRank, conferenceRank, fromYear, toYear));
 
     console.log("New pub_count updated for links:", graphData.links);
+    console.log("New pub_count updated for semi_weak_links:", graphData.semi_weak_links);
     console.log("New pub_count updated for weak_links:", graphData.weak_links);
 
 }
@@ -340,6 +333,7 @@ function renderGraph(conferenceRank, journalRank) {
     // 1. Build the link data and node data (same logic as before)
     // ----------------------------------------------------------------------
     let linkData = graphData.links.filter((l) => l.pub_count && l.pub_count > 0);
+    let semiWeakLinkData = graphData.semi_weak_links.filter((l) => l.pub_count && l.pub_count > 0);
     let weakLinkData = graphData.weak_links.filter((l) => l.pub_count && l.pub_count > 0);
     let nodeData = graphData.nodes.filter((n) => true);
 
@@ -348,10 +342,12 @@ function renderGraph(conferenceRank, journalRank) {
     if (linksCheckbox.checked) {
         if (conferenceRank && conferenceRank.trim() !== "") {
             linkData = linkData.filter((l) => typeof l[conferenceRank] === "number" && l[conferenceRank] > 0);
+            semiWeakLinkData = semiWeakLinkData.filter((l) => typeof l[conferenceRank] === "number" && l[conferenceRank] > 0);
             weakLinkData = weakLinkData.filter((l) => typeof l[conferenceRank] === "number" && l[conferenceRank] > 0);
         }
         if (journalRank && journalRank.trim() !== "") {
             linkData = linkData.filter((l) => typeof l[journalRank] === "number" && l[journalRank] > 0);
+            semiWeakLinkData = semiWeakLinkData.filter((l) => typeof l[journalRank] === "number" && l[journalRank] > 0);
             weakLinkData = weakLinkData.filter((l) => typeof l[journalRank] === "number" && l[journalRank] > 0);
         }
     } else {
@@ -370,6 +366,11 @@ function renderGraph(conferenceRank, journalRank) {
         const targetId = typeof link.target === "object" ? link.target.id : link.target;
         return nodeIds.has(sourceId) && nodeIds.has(targetId);
     });
+    semiWeakLinkData = semiWeakLinkData.filter((link) => {
+        const sourceId = typeof link.source === "object" ? link.source.id : link.source;
+        const targetId = typeof link.target === "object" ? link.target.id : link.target;
+        return nodeIds.has(sourceId) && nodeIds.has(targetId);
+    });
     weakLinkData = weakLinkData.filter((link) => {
         const sourceId = typeof link.source === "object" ? link.source.id : link.source;
         const targetId = typeof link.target === "object" ? link.target.id : link.target;
@@ -378,6 +379,7 @@ function renderGraph(conferenceRank, journalRank) {
 
     // Filter out nodes that are not linked
     const linkedNodeIds = new Set();
+    const semiWeakLinkedNodeIds = new Set();
     const weakLinkedNodeIds = new Set();
     linkData.forEach((link) => {
         const sourceId = typeof link.source === "object" ? link.source.id : link.source;
@@ -385,20 +387,35 @@ function renderGraph(conferenceRank, journalRank) {
         linkedNodeIds.add(sourceId);
         linkedNodeIds.add(targetId);
     });
+    semiWeakLinkData.forEach((link) => {
+        const sourceId = typeof link.source === "object" ? link.source.id : link.source;
+        const targetId = typeof link.target === "object" ? link.target.id : link.target;
+        semiWeakLinkedNodeIds.add(sourceId);
+        semiWeakLinkedNodeIds.add(targetId);
+    });
     weakLinkData.forEach((link) => {
         const sourceId = typeof link.source === "object" ? link.source.id : link.source;
         const targetId = typeof link.target === "object" ? link.target.id : link.target;
         weakLinkedNodeIds.add(sourceId);
         weakLinkedNodeIds.add(targetId);
     });
-    const filteredNodes = nodeData.filter((node) => linkedNodeIds.has(node.id) || weakLinkedNodeIds.has(node.id));
+    let filteredNodes = nodeData.filter((node) => linkedNodeIds.has(node.id) || weakLinkedNodeIds.has(node.id) || semiWeakLinkedNodeIds.has(node.id));
 
-    console.log("Nodes: " + filteredNodes.length + " - " + linkData.length + " - " + weakLinkData.length);
+    if (!showAll){
+        weakLinkData = weakLinkData.filter((link) => {
+            const sourceId = typeof link.source === "object" ? link.source.id : link.source;
+            const targetId = typeof link.target === "object" ? link.target.id : link.target;
+            return currentlySelected.includes(targetId) && currentlySelected.includes(sourceId);
+        });
+        filteredNodes = filteredNodes.filter((node) => linkedNodeIds.has(node.id) || semiWeakLinkedNodeIds.has(node.id));
+    }
+
+    console.log("Nodes: " + filteredNodes.length + " - links - " + linkData.length + " - " + semiWeakLinkData.length + " - " + weakLinkData.length);
     // ----------------------------------------------------------------------
     // If we have no nodes or no links at this point, alert & stop.
     // ----------------------------------------------------------------------
-    if ((filteredNodes.length === 0 || (linkData.length === 0 || weakLinkData.length === 0))
-        && (graphData.nodes.length !== 0 && (graphData.links.length !== 0 || graphData.weak_links.length !== 0))) {
+    if ((filteredNodes.length === 0 || (linkData.length === 0 && weakLinkData.length === 0 && semiWeakLinkData.length === 0))
+        && (graphData.nodes.length !== 0 && (graphData.links.length !== 0 || graphData.weak_links.length !== 0 || graphData.semi_weak_links.length !== 0))) {
         alert("No result found for selected filters");
         return; // Stop rendering
     }
@@ -419,6 +436,7 @@ function renderGraph(conferenceRank, journalRank) {
     // ----------------------------------------------------------------------
     const simulation = d3.forceSimulation(filteredNodes)
       .force("link", d3.forceLink(linkData).id(d => d.id).distance(100).strength(1))
+        .force("semi_weak_link", d3.forceLink(semiWeakLinkData).id(d => d.id).distance(200).strength(d => (1 / d.root_counts)))
       .force("charge", d3.forceManyBody().strength(-1000))
       .force("center", d3.forceCenter(width / 2, height / 2))
       .force("collide", d3.forceCollide().radius(FORCE_SETTINGS.collideRadius).strength(FORCE_SETTINGS.collideStrength))
@@ -428,6 +446,7 @@ function renderGraph(conferenceRank, journalRank) {
     simulation.on("end", () => {
          simulation
            .force("link", null)
+             .force("semi_weak_link", null)
            .force("charge", null)
            .force("center", null)
            .force("collide", null)
@@ -472,6 +491,12 @@ function renderGraph(conferenceRank, journalRank) {
       .join("line")
       .attr("stroke", (d) => getLinkColor(d, conferenceRank, journalRank, linksCheckbox.checked))
       .attr("stroke-width", (d) => LINK_WIDTH_SCALE(d.pub_count));
+    const semiWeakLink = zoomLayer.append("g")
+      .selectAll("line")
+      .data(semiWeakLinkData)
+      .join("line")
+      .attr("stroke", (d) => getLinkColor(d, conferenceRank, journalRank, linksCheckbox.checked))
+      .attr("stroke-width", (d) => LINK_WIDTH_SCALE(d.pub_count));
     const weakLink = zoomLayer.append("g")
       .selectAll("line")
       .data(weakLinkData)
@@ -483,24 +508,24 @@ function renderGraph(conferenceRank, journalRank) {
     // 6. Append nodes as groups, so we can insert both circle & image
     // ----------------------------------------------------------------------
     const node = zoomLayer.selectAll("g.node")
-        .data(filteredNodes)
-        .join("g")
-        .attr("class", "node")
-        .call(drag(simulation))
-        .on("contextmenu", (event, d) => {
-            event.preventDefault();
-            showNodePopup(d, event.pageX, event.pageY);
-        });
+    .data(filteredNodes)
+    .join("g")
+    .attr("class", "node")
+    .call(drag(simulation))
+    .on("contextmenu", (event, d) => {
+        event.preventDefault();
+        showNodePopup(d, event.pageX, event.pageY);
+    });
 
     // Define a unique clipPath for each node
     node.append("clipPath")
         .attr("id", d => `clip-circle-${d.id}`)
         .append("circle")
-        .attr("r", 16);
+        .attr("r", d => d.is_root ? 32 : 16);
 
     // A circle (visible outline)
     node.append("circle")
-        .attr("r", 16)
+        .attr("r", d => d.is_root ? 32 : 16)
         .attr("fill", "white")
         .attr("stroke", "#000")
         .attr("stroke-width", 1.5);
@@ -508,10 +533,10 @@ function renderGraph(conferenceRank, journalRank) {
     // The image, clipped to the circle
     node.append("svg:image")
         .attr("xlink:href", d => d.image || "")
-        .attr("width", 32)
-        .attr("height", 32)
-        .attr("x", -16)
-        .attr("y", -16)
+        .attr("width", d => d.is_root ? 64 : 32)
+        .attr("height", d => d.is_root ? 64 : 32)
+        .attr("x", d => d.is_root ? -32 : -16)
+        .attr("y", d => d.is_root ? -32 : -16)
         .attr("clip-path", d => `url(#clip-circle-${d.id})`)
         .on("error", function () {
             d3.select(this).attr("xlink:href", "/static/resource/avatar.png");
@@ -520,10 +545,10 @@ function renderGraph(conferenceRank, journalRank) {
     // The label below the node
     node.append("text")
         .attr("x", 0)
-        .attr("y", 24)  // just below the circle
+        .attr("y", d => d.is_root ? 48 : 24)
         .attr("text-anchor", "middle")
         .attr("alignment-baseline", "hanging")
-        .style("font-size", "8px")
+        .style("font-size", d => d.is_root ? "12px" : "8px")
         .text(d => d.label || "");
 
     // ----------------------------------------------------------------------
@@ -537,6 +562,12 @@ function renderGraph(conferenceRank, journalRank) {
           .attr("y2", d => d.target.y);
 
         weakLink
+          .attr("x1", d => d.source.x)
+          .attr("y1", d => d.source.y)
+          .attr("x2", d => d.target.x)
+          .attr("y2", d => d.target.y);
+
+        semiWeakLink
           .attr("x1", d => d.source.x)
           .attr("y1", d => d.source.y)
           .attr("x2", d => d.target.x)
@@ -654,6 +685,9 @@ document.getElementById("zoom-out-btn").addEventListener("click", () => {
 // Handles Graph API call
 // ======================================================
 function fetchGraphData(selectedNodeId, depth, conferenceRank, journalRank, fromYear, toYear, loadingPopup, render = true, init = false){
+    prevConfRank = conferenceRank;
+    prevJournalRank = journalRank;
+    currentlySelected = selectedNodeId;
     fetch("/generate-graph", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -667,9 +701,9 @@ function fetchGraphData(selectedNodeId, depth, conferenceRank, journalRank, from
         }),
     })
         .then((response) => response.json())
-        .then(({ nodes, links, weak_links }) => {
-            console.log("API response received:", { nodes, links, weak_links });
-            mergeGraphData(nodes, links, weak_links);
+        .then(({ nodes, links, semi_weak_links, weak_links }) => {
+            console.log("API response received:", { nodes, links, semi_weak_links, weak_links });
+            mergeGraphData(nodes, links, semi_weak_links, weak_links);
             updatePubCount(conferenceRank, journalRank, fromYear, toYear);
             updateNodeDropdown()
             if (render === true) {
@@ -699,6 +733,7 @@ function fetchGraphData(selectedNodeId, depth, conferenceRank, journalRank, from
 function clearGraph(){
     graphData.links.length = 0;
     graphData.nodes.length = 0;
+    graphData.semi_weak_links.length = 0;
     graphData.weak_links.length = 0;
     const svg = d3.select("svg");
     svg.selectAll("*").remove();
@@ -751,12 +786,25 @@ document.addEventListener("DOMContentLoaded", () => {
     const checkbox = document.getElementById("links-checkbox");
     const label = document.getElementById("filter-label");
 
+    const link_checkbox = document.getElementById("graph-links-checkbox");
+    const link_label = document.getElementById("graph-filter-label");
+
     checkbox.addEventListener("change", () => {
         if (checkbox.checked) {
             label.textContent = "Filter Ranks By: Links";
         } else {
             label.textContent = "Filter Ranks By: Nodes";
         }
+    });
+    link_checkbox.addEventListener("change", () => {
+        if (link_checkbox.checked) {
+            showAll = true;
+            link_label.textContent = "Show Links: All";
+        } else {
+            showAll = false;
+            link_label.textContent = "Show Links: From Roots";
+        }
+        renderGraph(prevConfRank, prevJournalRank);
     });
 });
 
